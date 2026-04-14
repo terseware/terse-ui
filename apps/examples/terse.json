@@ -1,0 +1,7 @@
+{
+  "$schema": "https://terseware.com/schema/terse.json",
+  "prefix": "app",
+  "outputDir": "src/generated",
+  "uiPackage": "@terseware/ui",
+  "style": "none"
+}
