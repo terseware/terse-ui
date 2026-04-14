@@ -83,7 +83,7 @@ describe('Identifier atom', () => {
          <section [attr.aria-labelledby]="t.id()">body</section>`,
         {imports: [TerseIdent]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

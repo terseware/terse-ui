@@ -111,7 +111,7 @@ describe('Classes atom', () => {
         `<button terseClasses [class]="'btn primary'" aria-label="Save">Save</button>`,
         {imports: [TestClasses]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

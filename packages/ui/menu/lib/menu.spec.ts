@@ -718,7 +718,7 @@ describe('Menu', () => {
   describe('axe a11y', () => {
     it('closed menu (trigger only) has no violations', async () => {
       const {container} = await render(BasicMenuHost);
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('open menu with focusable items has no violations', async () => {
@@ -728,13 +728,13 @@ describe('Menu', () => {
       // three items before we hand it to axe.
       const menu = getMenu();
       expect(within(menu).getAllByRole('menuitem')).toHaveLength(3);
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('menu containing a hard-disabled item has no violations', async () => {
       const {container, fixture} = await render(DisabledItemMenuHost);
       openMenu(fixture);
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('submenu chain: parent + open child both clean', async () => {
@@ -743,19 +743,19 @@ describe('Menu', () => {
       getItem('More').focus();
       await userEvent.keyboard('{ArrowRight}');
       expect(screen.getByRole('menu', {name: 'More'})).toBeInTheDocument();
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('reopen cycle stays clean', async () => {
       const {container, fixture} = await render(BasicMenuHost);
       openMenu(fixture);
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
 
       await userEvent.keyboard('{Escape}');
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
 
       openMenu(fixture);
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

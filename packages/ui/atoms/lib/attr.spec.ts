@@ -620,7 +620,7 @@ describe('attr atoms', () => {
       const {container} = await render(`<button nativeBool aria-label="Close">×</button>`, {
         imports: [NativeBoolHarness],
       });
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria bool harness on expandable button: no axe violations', async () => {
@@ -629,14 +629,14 @@ describe('attr atoms', () => {
          <div id="p" hidden>panel</div>`,
         {imports: [AriaBoolHarness]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria tri-state on toggle button: no axe violations', async () => {
       const {container} = await render(`<button ariaTri aria-pressed="false">Mute</button>`, {
         imports: [AriaTriHarness],
       });
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria token harness on popup trigger: no axe violations', async () => {
@@ -644,7 +644,7 @@ describe('attr atoms', () => {
         `<button ariaToken aria-haspopup="menu" aria-expanded="false">Menu</button>`,
         {imports: [AriaTokenHarness]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria numeric harness on slider: no axe violations', async () => {
@@ -653,14 +653,14 @@ describe('attr atoms', () => {
               aria-valuemin="0" aria-valuemax="100" aria-valuenow="42"></div>`,
         {imports: [AriaNumHarness]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria string harness on labeled button: no axe violations', async () => {
       const {container} = await render(`<button ariaStr aria-label="Close">×</button>`, {
         imports: [AriaStrHarness],
       });
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('aria idref harness on labelled dialog: no axe violations', async () => {
@@ -672,7 +672,7 @@ describe('attr atoms', () => {
          </div>`,
         {imports: [AriaIdRefHarness]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('data-state harness: no axe violations (data-* is presentational only)', async () => {
@@ -680,7 +680,7 @@ describe('attr atoms', () => {
         `<button dataState data-disabled="soft" aria-disabled="true">x</button>`,
         {imports: [DataStateHarness]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

@@ -1,5 +1,5 @@
 import {Directive, inject, input, isDevMode} from '@angular/core';
-import {AttributePipeline} from './attribute';
+import {pipelineSignal} from '@terse-ui/core/state';
 import {RoleAttribute} from './role-attribute';
 
 export type OrientationValue = 'vertical' | 'horizontal' | null;
@@ -8,29 +8,29 @@ export type OrientationValue = 'vertical' | 'horizontal' | null;
   exportAs: 'orientation',
   hostDirectives: [RoleAttribute],
   host: {
-    '[attr.aria-orientation]': 'state.domValue()',
-    '[attr.data-orientation]': 'state.domValue()',
+    '[attr.aria-orientation]': 'value()',
+    '[attr.data-orientation]': 'value()',
   },
 })
-export class Orientation extends AttributePipeline<OrientationValue> {
+export class Orientation {
   readonly #role = inject(RoleAttribute);
-  readonly orientation = input<OrientationValue>(null);
-  constructor() {
-    super(null, (value) => {
+  readonly _input = input<OrientationValue>(null, {alias: 'orientation'});
+  readonly value = pipelineSignal(this._input, {
+    normalize: (value) => {
       const validOrientation = Orientation.VALUE_SET.has(value as never);
-      const validRole = Orientation.ALLOWED_ROLES_SET.has(this.#role.state.domValue() as never);
+      const validRole = Orientation.ALLOWED_ROLES_SET.has(this.#role.value() as never);
 
       if (validOrientation && !validRole && isDevMode()) {
         // eslint-disable-next-line no-console
         console.warn(
-          `Orientation ${value} is not allowed for role ${this.#role.state.domValue()}` +
+          `Orientation ${value} is not allowed for role ${this.#role.value()}` +
             ` Allowed roles: ${Orientation.ALLOWED_ROLES_STRING}`,
         );
       }
 
       return validOrientation && validRole ? value : null;
-    });
-  }
+    },
+  });
 
   /** The set of valid `aria-orientation` attribute values. */
   static readonly VALUE_SET = new Set(['vertical', 'horizontal'] as const);

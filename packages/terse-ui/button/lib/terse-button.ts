@@ -1,5 +1,6 @@
 import {Directive, inject} from '@angular/core';
 import {RoleAttribute, TabIndex, TypeAttribute} from '@terse-ui/core/attributes';
+import {Disabler} from '@terse-ui/core/disabler';
 import {Button} from './button';
 
 export interface TerseButton extends Button {}
@@ -23,7 +24,8 @@ export interface TerseButton extends Button {}
   selector: '[terseButton]',
   exportAs: 'terseButton',
   hostDirectives: [
-    {directive: Button, inputs: ['disabled', 'options:terseButtonOptions']},
+    Button,
+    {directive: Disabler, inputs: ['disabled', 'disablerOptions:terseDisablerOptions']},
     {directive: TabIndex, inputs: ['tabIndex']},
     {directive: RoleAttribute, inputs: ['role']},
     {directive: TypeAttribute, inputs: ['type']},

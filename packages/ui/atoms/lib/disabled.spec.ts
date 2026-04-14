@@ -361,7 +361,7 @@ describe('Activatable', () => {
         `<button testDisabled disabled aria-label="Submit">Submit</button>`,
         {imports: [TestDisabled]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('no violations on a soft-disabled non-native button', async () => {
@@ -371,7 +371,7 @@ describe('Activatable', () => {
         `<span testDisabled role="button" disabled softDisabled aria-label="Save">Save</span>`,
         {imports: [TestDisabled]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('no violations when loading state cycles hard/soft transitions', async () => {
@@ -379,11 +379,11 @@ describe('Activatable', () => {
         `<button testDisabled [disabled]="load" [softDisabled]="load" aria-label="Go">Go</button>`,
         {imports: [TestDisabled], componentProperties: {load: false}},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
       await rerender({componentProperties: {load: true}});
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
       await rerender({componentProperties: {load: false}});
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 

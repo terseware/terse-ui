@@ -622,12 +622,12 @@ describe('RovingFocus', () => {
   describe('axe a11y', () => {
     it('vertical group: no violations', async () => {
       const {container} = await render(VERTICAL_TEMPLATE, {imports: IMPORTS});
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('horizontal group: no violations (aria-orientation present)', async () => {
       const {container} = await render(HORIZONTAL_TEMPLATE, {imports: IMPORTS});
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('group with a mix of hard and soft disabled items: no violations', async () => {
@@ -639,7 +639,7 @@ describe('RovingFocus', () => {
          </div>`,
         {imports: IMPORTS},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
 
     it('group scoped by aria-label is queryable by that label (group landmark semantics)', async () => {
@@ -657,7 +657,7 @@ describe('RovingFocus', () => {
       const toolbar = screen.getByRole('toolbar', {name: 'Editor tools'});
       expect(toolbar).toHaveAttribute('aria-orientation', 'horizontal');
       expect(within(toolbar).getByRole('button', {name: 'Bold'})).toHaveAttribute('tabindex', '0');
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

@@ -40,7 +40,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
-          inject(TestOnKeyDown).append(({event}) => spy(event.key));
+          inject(TestOnKeyDown).pipe(({event}) => spy(event.key));
         }
       }
 
@@ -66,11 +66,11 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({next}) => {
+          pipe.pipe(({next}) => {
             order.push('first-appended');
             next();
           });
-          pipe.append(({next}) => {
+          pipe.pipe(({next}) => {
             order.push('second-appended');
             next();
           });
@@ -89,7 +89,7 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({next}) => {
+          pipe.pipe(({next}) => {
             order.push('appended');
             next();
           });
@@ -114,8 +114,8 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(() => innerRan());
-          pipe.append(() => void 0); // does not call next
+          pipe.pipe(() => innerRan());
+          pipe.pipe(() => void 0); // does not call next
         }
       }
 
@@ -131,8 +131,8 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({event}) => spy(event.key));
-          pipe.append(({next}) => next());
+          pipe.pipe(({event}) => spy(event.key));
+          pipe.pipe(({next}) => next());
         }
       }
 
@@ -150,8 +150,8 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(() => innerRan());
-          pipe.append(({stop}) => stop());
+          pipe.pipe(() => innerRan());
+          pipe.pipe(({stop}) => stop());
         }
       }
 
@@ -167,12 +167,12 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(() => order.push('A'));
-          pipe.append(({next}) => {
+          pipe.pipe(() => order.push('A'));
+          pipe.pipe(({next}) => {
             order.push('B');
             next();
           });
-          pipe.append(({next, stop}) => {
+          pipe.pipe(({next, stop}) => {
             order.push('C');
             next(); // runs B
             stop(); // prevents A from running on further next() calls
@@ -197,8 +197,8 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({stop}) => stop());
-          pipe.append(({next, stopped}) => {
+          pipe.pipe(({stop}) => stop());
+          pipe.pipe(({next, stopped}) => {
             next();
             outerSawStop = stopped();
           });
@@ -216,7 +216,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
-          inject(TestOnKeyDown).append(({prevent}) => prevent());
+          inject(TestOnKeyDown).pipe(({prevent}) => prevent());
         }
       }
 
@@ -230,8 +230,8 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({prevent}) => prevent());
-          pipe.append(({next, prevent}) => {
+          pipe.pipe(({prevent}) => prevent());
+          pipe.pipe(({next, prevent}) => {
             prevent();
             next();
           });
@@ -250,10 +250,10 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.append(({defaultPrevented}) => {
+          pipe.pipe(({defaultPrevented}) => {
             innerSawPrevented = defaultPrevented;
           });
-          pipe.append(({next, prevent}) => {
+          pipe.pipe(({next, prevent}) => {
             prevent();
             next();
           });
@@ -274,7 +274,7 @@ describe('EventPipeline', () => {
       class Host {
         remove!: () => void;
         constructor() {
-          this.remove = inject(TestOnKeyDown).append(() => spy());
+          this.remove = inject(TestOnKeyDown).pipe(() => spy());
         }
       }
 
@@ -299,8 +299,8 @@ describe('EventPipeline', () => {
         remove1!: () => void;
         remove2!: () => void;
         constructor() {
-          this.remove1 = this.pipe.append(() => void 0);
-          this.remove2 = this.pipe.append(() => void 0);
+          this.remove1 = this.pipe.pipe(() => void 0);
+          this.remove2 = this.pipe.pipe(() => void 0);
         }
       }
 
@@ -332,7 +332,7 @@ describe('EventPipeline', () => {
         readonly disabled = signal(false);
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
-          inject(TestOnKeyDown).append(({event, stop, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, stop, next, stopped}) => {
             if (this.disabled()) {
               stop();
               return;
@@ -382,7 +382,7 @@ describe('EventPipeline', () => {
       class Btn {
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
-          inject(TestOnKeyDown).append(({event, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, next, stopped}) => {
             next();
             if (stopped()) return;
             buttonKeydownSpy(event.key);
@@ -392,7 +392,7 @@ describe('EventPipeline', () => {
             }
           });
           // Normal button: Space fires click on keyup
-          inject(TestOnKeyUp).append(({event}) => {
+          inject(TestOnKeyUp).pipe(({event}) => {
             if (event.key === ' ') {
               this.el.click();
             }
@@ -405,7 +405,7 @@ describe('EventPipeline', () => {
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
           // MenuItem intercepts Space on keydown → immediate activation
-          inject(TestOnKeyDown).append(({event, next, stop}) => {
+          inject(TestOnKeyDown).pipe(({event, next, stop}) => {
             if (event.key === ' ') {
               event.preventDefault();
               menuItemActivated();
@@ -415,7 +415,7 @@ describe('EventPipeline', () => {
             next();
           });
           // MenuItem intercepts Space on keyup → prevent native button behavior
-          inject(TestOnKeyUp).append(({event, next}) => {
+          inject(TestOnKeyUp).pipe(({event, next}) => {
             if (event.key === ' ') {
               event.preventDefault();
               return; // swallow — activation already happened on keydown
@@ -450,7 +450,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[btn]', hostDirectives: [TestOnKeyDown]})
       class Btn {
         constructor() {
-          inject(TestOnKeyDown).append(({event, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, next, stopped}) => {
             next();
             if (stopped()) return;
             order.push(`btn:${event.key}`);
@@ -461,7 +461,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[trigger]', hostDirectives: [Btn]})
       class Trigger {
         constructor() {
-          inject(TestOnKeyDown).append(({event, next, stop}) => {
+          inject(TestOnKeyDown).pipe(({event, next, stop}) => {
             // ArrowDown opens the menu — intercept and stop
             if (event.key === 'ArrowDown') {
               order.push('trigger:open-menu');
@@ -476,7 +476,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[toolbar]', hostDirectives: [Trigger]})
       class Toolbar {
         constructor() {
-          inject(TestOnKeyDown).append(({event, next}) => {
+          inject(TestOnKeyDown).pipe(({event, next}) => {
             order.push(`toolbar:${event.key}`);
             next();
           });
@@ -504,7 +504,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[branchA]', hostDirectives: [TestOnKeyDown]})
       class BranchA {
         constructor() {
-          inject(TestOnKeyDown).append(({next}) => {
+          inject(TestOnKeyDown).pipe(({next}) => {
             order.push('A');
             next();
           });
@@ -514,7 +514,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[branchB]', hostDirectives: [TestOnKeyDown]})
       class BranchB {
         constructor() {
-          inject(TestOnKeyDown).append(({next}) => {
+          inject(TestOnKeyDown).pipe(({next}) => {
             order.push('B');
             next();
           });
@@ -524,7 +524,7 @@ describe('EventPipeline', () => {
       @Directive({selector: '[diamond]', hostDirectives: [BranchA, BranchB]})
       class Diamond {
         constructor() {
-          inject(TestOnKeyDown).append(({next}) => {
+          inject(TestOnKeyDown).pipe(({next}) => {
             order.push('Diamond');
             next();
           });
@@ -534,7 +534,7 @@ describe('EventPipeline', () => {
       await render(`<button diamond>Click</button>`, {imports: [Diamond]});
       keyDown(screen.getByRole('button'), 'x');
       // Construction order: TestOnKeyDown → BranchA → BranchB → Diamond
-      expect(order).toEqual(['Diamond', 'B', 'A']);
+      expect(order).toEqual(['A', 'B', 'Diamond']);
     });
 
     it('stop() in one branch halts the other', async () => {
@@ -543,14 +543,14 @@ describe('EventPipeline', () => {
       @Directive({selector: '[branchA]', hostDirectives: [TestOnKeyDown]})
       class BranchA {
         constructor() {
-          inject(TestOnKeyDown).append(() => branchARan());
+          inject(TestOnKeyDown).pipe(() => branchARan());
         }
       }
 
       @Directive({selector: '[branchB]', hostDirectives: [TestOnKeyDown]})
       class BranchB {
         constructor() {
-          inject(TestOnKeyDown).append(({stop}) => stop());
+          inject(TestOnKeyDown).pipe(({stop}) => stop());
         }
       }
 
@@ -574,7 +574,7 @@ describe('EventPipeline', () => {
       class Btn {
         readonly disabled = signal<boolean | 'soft'>(false);
         constructor() {
-          inject(TestOnKeyDown).append(({event, stop, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, stop, next, stopped}) => {
             const isSoftDisabled = this.disabled() === 'soft';
             const isHardDisabled = this.disabled() === true;
 

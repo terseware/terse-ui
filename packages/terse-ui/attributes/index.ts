@@ -1,5 +1,4 @@
 export * from './lib/aria-disabled';
-export * from './lib/attribute';
 export * from './lib/data-attributes';
 export * from './lib/disabled-attribute';
 export * from './lib/id-attribute';

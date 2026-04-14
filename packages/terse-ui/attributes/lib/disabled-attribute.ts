@@ -1,14 +1,12 @@
 import {Directive} from '@angular/core';
+import {pipelineSignal} from '@terse-ui/core/state';
 import {hasDisabledAttribute, injectElement} from '@terse-ui/core/utils';
-import {AttributePipeline} from './attribute';
 
 @Directive({
   exportAs: 'disabled',
-  host: {'[attr.disabled]': 'state.domValue()'},
+  host: {'[attr.disabled]': 'value() ? "" : null'},
 })
-export class DisabledAttribute extends AttributePipeline<boolean> {
+export class DisabledAttribute {
   readonly #native = hasDisabledAttribute(injectElement());
-  constructor() {
-    super(false, (value) => (this.#native && value ? '' : null));
-  }
+  readonly value = pipelineSignal(false, {normalize: (value) => this.#native && value});
 }

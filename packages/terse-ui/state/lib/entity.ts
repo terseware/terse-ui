@@ -10,12 +10,21 @@ export function emptyCollection<T>(): EntityCollection<T> {
   return {ids: [], entities: {}};
 }
 
+export function addEntity<T extends {id: EntityId}>(
+  collection: EntityCollection<T>,
+  entity: T,
+): EntityCollection<T>;
 export function addEntity<T>(
   collection: EntityCollection<T>,
   entity: T,
   selectId: SelectId<T>,
+): EntityCollection<T>;
+export function addEntity<T>(
+  collection: EntityCollection<T>,
+  entity: T,
+  selectId?: SelectId<T>,
 ): EntityCollection<T> {
-  const id = selectId(entity);
+  const id = selectId ? selectId(entity) : (entity as {id: EntityId}).id;
   if (id in collection.entities) return collection;
   return {
     ids: [...collection.ids, id],
@@ -50,12 +59,21 @@ export function updateEntity<T>(
   };
 }
 
+export function upsertEntity<T extends {id: EntityId}>(
+  collection: EntityCollection<T>,
+  entity: T,
+): EntityCollection<T>;
 export function upsertEntity<T>(
   collection: EntityCollection<T>,
   entity: T,
   selectId: SelectId<T>,
+): EntityCollection<T>;
+export function upsertEntity<T>(
+  collection: EntityCollection<T>,
+  entity: T,
+  selectId?: SelectId<T>,
 ): EntityCollection<T> {
-  const id = selectId(entity);
+  const id = selectId ? selectId(entity) : (entity as {id: EntityId}).id;
   const existing = collection.entities[id];
   return {
     ids: existing ? collection.ids : [...collection.ids, id],
@@ -63,12 +81,21 @@ export function upsertEntity<T>(
   };
 }
 
+export function setEntity<T extends {id: EntityId}>(
+  collection: EntityCollection<T>,
+  entity: T,
+): EntityCollection<T>;
 export function setEntity<T>(
   collection: EntityCollection<T>,
   entity: T,
   selectId: SelectId<T>,
+): EntityCollection<T>;
+export function setEntity<T>(
+  collection: EntityCollection<T>,
+  entity: T,
+  selectId?: SelectId<T>,
 ): EntityCollection<T> {
-  const id = selectId(entity);
+  const id = selectId ? selectId(entity) : (entity as {id: EntityId}).id;
   const exists = id in collection.entities;
   return {
     ids: exists ? collection.ids : [...collection.ids, id],
@@ -76,11 +103,13 @@ export function setEntity<T>(
   };
 }
 
-export function setAllEntities<T>(entities: T[], selectId: SelectId<T>): EntityCollection<T> {
+export function setAllEntities<T extends {id: EntityId}>(entities: T[]): EntityCollection<T>;
+export function setAllEntities<T>(entities: T[], selectId: SelectId<T>): EntityCollection<T>;
+export function setAllEntities<T>(entities: T[], selectId?: SelectId<T>): EntityCollection<T> {
   const result: Record<EntityId, T> = {};
   const ids: EntityId[] = [];
   for (const entity of entities) {
-    const id = selectId(entity);
+    const id = selectId ? selectId(entity) : (entity as {id: EntityId}).id;
     result[id] = entity;
     ids.push(id);
   }

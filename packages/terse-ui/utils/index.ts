@@ -3,6 +3,7 @@ export * from './lib/deep-merge';
 export * from './lib/deep-signal';
 export * from './lib/id-generator';
 export * from './lib/inject-element';
+export * from './lib/signal-validators';
 export * from './lib/timeout';
 export * from './lib/typings';
 export * from './lib/unwrap';

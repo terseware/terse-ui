@@ -189,9 +189,9 @@ describe('Discloser atom', () => {
        <div id="p" [hidden]="!o">panel</div>`,
       {imports: [TestDiscloser], componentProperties: {o: false}},
     );
-    await expectNoA11yViolations(container);
+    await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
 
     await rerender({componentProperties: {o: true}});
-    await expectNoA11yViolations(container);
+    await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
   });
 });

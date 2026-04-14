@@ -10,7 +10,7 @@ import {setupContext} from '@signality/core/internal';
  */
 export interface EventPipelineContext<E extends Event> {
   /** The DOM event being processed. */
-  readonly event: E;
+  get event(): E;
 
   /**
    * True if `prevent()` was called by a prior handler in this pipeline run.
@@ -18,7 +18,7 @@ export interface EventPipelineContext<E extends Event> {
    * Tracks pipeline-level state — may differ from `event.defaultPrevented`
    * if external code also called `preventDefault()`.
    */
-  readonly defaultPrevented: boolean;
+  defaultPrevented(): boolean;
 
   /**
    * True if a downstream handler called `stop()`.
@@ -34,7 +34,7 @@ export interface EventPipelineContext<E extends Event> {
    * Prefer this over calling `event.preventDefault()` directly so that
    * other handlers can check `defaultPrevented` reliably.
    */
-  prevent(): void;
+  preventDefault(): void;
 
   /** Halt the pipeline — remaining downstream handlers will not run. */
   stop(): void;
@@ -55,9 +55,9 @@ export type EventPipelineHandler<E extends Event> = (ctx: EventPipelineContext<E
  * Reactive middleware pipeline for DOM events.
  *
  * Subclasses bind a host event (e.g. `(keydown)`) and call {@link dispatch}.
- * Composing directives inject the pipeline and call {@link append} to
+ * Composing directives inject the pipeline and call {@link pipe} to
  * intercept events. Handlers delegate via `next()` or halt via `stop()`.
- * Last appended = outermost = runs first.
+ * Last piped = outermost = runs first.
  *
  * @example
  * ```ts
@@ -68,7 +68,7 @@ export type EventPipelineHandler<E extends Event> = (ctx: EventPipelineContext<E
  * // Composing directive — intercepts Space for immediate activation
  * class CompositeItem {
  *   constructor() {
- *     inject(OnKeyDown).append(({event, next, stop}) => {
+ *     inject(OnKeyDown).pipe(({event, next, stop}) => {
  *       if (event.key === ' ') { element.click(); stop(); return; }
  *       next();
  *     });
@@ -89,46 +89,27 @@ export class EventPipeline<E extends Event = Event> {
   }
 
   /**
-   * Append a handler to the pipeline (outermost — runs first).
+   * Pipe a handler to the pipeline (first in chain — runs first).
    *
-   * This is the primary way composing directives intercept events.
    * Returns a removal function; the handler is also auto-removed
    * when the injection context is destroyed.
    */
-  append(handler: EventPipelineHandler<E>, opts?: {injector?: Injector}): () => void {
-    return this.#use(handler, {...opts, position: 'append'});
-  }
-
-  /**
-   * Prepend a handler to the pipeline (innermost — runs last, closest to dispatch).
-   *
-   * Use when you need to provide a base handler that outer handlers can
-   * override. Prefer {@link append} for most use cases.
-   */
-  prepend(handler: EventPipelineHandler<E>, opts?: {injector?: Injector}): () => void {
-    return this.#use(handler, {...opts, position: 'prepend'});
-  }
-
-  #use(
+  pipe(
     handler: EventPipelineHandler<E>,
-    opts?: {injector?: Injector; position: 'append' | 'prepend'},
+    opts?: {
+      injector?: Injector;
+      /**
+       * Insert at the front of the chain instead of the end.
+       * ONLY USE AS A LAST RESORT.
+       */
+      prepend?: boolean;
+    },
   ): () => void {
-    const {runInContext} = setupContext(opts?.injector, this.#use.bind(this));
+    const {runInContext} = setupContext(opts?.injector, this.pipe.bind(this));
 
     return runInContext(({onCleanup}) => {
-      const position = opts?.position ?? 'append';
-      this.#handlers.update((h) => (position === 'prepend' ? [handler, ...h] : [...h, handler]));
-
-      const remove = () => {
-        this.#handlers.update((h) => {
-          const idx = h.indexOf(handler);
-          if (idx === -1) return h;
-          const copy = h.slice();
-          copy.splice(idx, 1);
-          return copy;
-        });
-      };
-
+      this.#handlers.update((h) => (opts?.prepend ? [handler, ...h] : [...h, handler]));
+      const remove = () => this.#handlers.update((ha) => ha.filter((h) => h !== handler));
       onCleanup(remove);
       return remove;
     });
@@ -147,15 +128,18 @@ function executeEventPipeline<E extends Event>(
   let defaultPrevented = event.defaultPrevented;
 
   const execute = (index: number): void => {
-    if (stopped || index < 0) return;
-
+    if (stopped || index >= handlers.length) return;
     handlers[index]?.({
-      event,
-      get defaultPrevented() {
+      get event() {
+        return event;
+      },
+      defaultPrevented() {
         return defaultPrevented;
       },
-      stopped: () => stopped,
-      prevent() {
+      stopped() {
+        return stopped;
+      },
+      preventDefault() {
         if (!defaultPrevented) {
           defaultPrevented = true;
           event.preventDefault();
@@ -166,11 +150,11 @@ function executeEventPipeline<E extends Event>(
       },
       next() {
         if (!stopped) {
-          execute(index - 1);
+          execute(index + 1);
         }
       },
     });
   };
 
-  execute(handlers.length - 1);
+  execute(0);
 }

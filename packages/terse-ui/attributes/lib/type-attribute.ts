@@ -1,17 +1,12 @@
-import {Directive, HostAttributeToken, inject, input, linkedSignal} from '@angular/core';
-import {AttributePipeline} from './attribute';
+import {Directive, HostAttributeToken, inject, input} from '@angular/core';
+import {pipelineSignal} from '@terse-ui/core/state';
 
 @Directive({
   exportAs: 'type',
-  host: {'[attr.type]': 'state.domValue()'},
+  host: {'[attr.type]': 'value()'},
 })
-export class TypeAttribute extends AttributePipeline<string | null> {
+export class TypeAttribute {
   readonly #host = inject(new HostAttributeToken('type'), {optional: true});
-  readonly type = input(this.#host);
-  constructor() {
-    super(
-      linkedSignal(() => this.type()),
-      (value) => value,
-    );
-  }
+  readonly _input = input(this.#host, {alias: 'type'});
+  readonly value = pipelineSignal(this._input);
 }

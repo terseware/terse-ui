@@ -80,7 +80,7 @@ describe('TabIndex atom', () => {
         `<div tabIndex role="button" [tabIndex]="0" aria-label="Go">Go</div>`,
         {imports: [TabIndex]},
       );
-      await expectNoA11yViolations(container);
+      await expect(expectNoA11yViolations(container)).resolves.not.toThrow();
     });
   });
 });

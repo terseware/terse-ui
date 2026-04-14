@@ -1,15 +1,9 @@
-import {Directive, inject, input, linkedSignal} from '@angular/core';
+import {computed, Directive, inject, input} from '@angular/core';
 import {listener} from '@signality/core';
 import {AriaDisabled, DataDisabled, DisabledAttribute, TabIndex} from '@terse-ui/core/attributes';
-import {OnClick, OnKeyDown, OnKeyUp, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
-import {StatePipeline} from '@terse-ui/core/state';
-import {
-  configBuilder,
-  hasDisabledAttribute,
-  injectElement,
-  isBoolean,
-  type DeepPartial,
-} from '@terse-ui/core/utils';
+import {OnClick, OnKeyDown, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
+import {pipelineSignal} from '@terse-ui/core/state';
+import {configBuilder, hasDisabledAttribute, injectElement, isBoolean} from '@terse-ui/core/utils';
 
 /**
  * Controls which capture-phase events are suppressed when the button is disabled.
@@ -25,45 +19,16 @@ export interface DisablerOptions {
   capturePointerDown: boolean;
 }
 
-const [provideDisablerConfig, injectDisablerConfig] = configBuilder<{options: DisablerOptions}>(
-  'Button',
+const [provideDisablerOptions, injectDisablerOptions] = configBuilder<DisablerOptions>(
+  'DisablerOptions',
   {
-    options: {
-      captureClick: true,
-      captureMouseDown: true,
-      capturePointerDown: true,
-    },
+    captureClick: true,
+    captureMouseDown: true,
+    capturePointerDown: true,
   },
 );
 
-export {provideDisablerConfig};
-
-/** Inner state before the pipeline transform. */
-interface DisablerInnerState extends DisablerOptions {
-  disabled: boolean | 'soft';
-}
-
-/**
- * The computed public state of a button, exposed via `result`.
- *
- * This is the transformed output of the state pipeline — derived from
- * the raw `disabled` input and options. Use `result.disabled()`,
- * `result.softDisabled()`, etc. in composing directives.
- */
-export interface DisablerState {
-  /** True when disabled in any form (hard or soft). */
-  disabled: boolean;
-  /** True only when `disabled="soft"` — focusable but non-interactive. */
-  softDisabled: boolean;
-  /** `'hard'`, `'soft'`, or `null` — useful for `data-disabled` styling. */
-  disabledVariant: 'soft' | 'hard' | null;
-  /** Current capture-phase suppression options. */
-  captureClick: boolean;
-  /** Whether to suppress mouse down events when disabled. */
-  captureMouseDown: boolean;
-  /** Whether to suppress pointer down events when disabled. */
-  capturePointerDown: boolean;
-}
+export {provideDisablerOptions};
 
 /**
  * Base button behavior: disabled states, keyboard activation, and ARIA attributes.
@@ -88,24 +53,22 @@ export interface DisablerState {
     DataDisabled,
     AriaDisabled,
     OnKeyDown,
-    OnKeyUp,
     OnClick,
     OnMouseDown,
     OnPointerDown,
   ],
 })
-export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
-  readonly #config = injectDisablerConfig();
+export class Disabler {
+  readonly #options = injectDisablerOptions();
   readonly #element = injectElement();
   readonly #hasDisabledAttribute = hasDisabledAttribute(this.#element);
 
   readonly host = {
-    tabIndex: inject(TabIndex),
-    disabled: inject(DisabledAttribute),
-    ariaDisabled: inject(AriaDisabled),
-    dataDisabled: inject(DataDisabled),
+    tabIndex: inject(TabIndex).value,
+    disabled: inject(DisabledAttribute).value,
+    ariaDisabled: inject(AriaDisabled).value,
+    dataDisabled: inject(DataDisabled).value,
     onKeyDown: inject(OnKeyDown),
-    onKeyUp: inject(OnKeyUp),
     onClick: inject(OnClick),
     onMouseDown: inject(OnMouseDown),
     onPointerDown: inject(OnPointerDown),
@@ -131,7 +94,7 @@ export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
    * <button terseButton [disabled]="isLoading ? 'soft' : false">Submit</button>
    * ```
    */
-  readonly disabledInput = input(false, {
+  readonly _disabledInput = input(false, {
     alias: 'disabled',
     transform: (v: boolean | '' | 'hard' | 'soft' | null | undefined): boolean | 'soft' => {
       if (isBoolean(v)) return v;
@@ -140,6 +103,16 @@ export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
       return false;
     },
   });
+
+  readonly disabled = pipelineSignal(this._disabledInput);
+
+  readonly variant = computed(() =>
+    this.disabled() === 'soft' ? 'soft' : this.disabled() === true ? 'hard' : null,
+  );
+
+  readonly soft = computed(() => this.variant() === 'soft');
+
+  readonly hard = computed(() => this.variant() === 'hard');
 
   /**
    * Override capture-phase event suppression on a per-instance basis.
@@ -155,93 +128,40 @@ export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
    * <button terseButton [options]="{ capturePointerDown: false }">Info</button>
    * ```
    */
-  readonly optionsInput = input<Partial<DisablerOptions>>(this.#config.options, {
+  readonly _optionsInput = input<DisablerOptions, Partial<DisablerOptions>>(this.#options, {
     alias: 'disablerOptions',
+    transform: (v) => ({...this.#options, ...v}),
   });
 
-  /**
-   * Programmatically disable the button.
-   *
-   * Overrides the template `[disabled]` binding until the next change
-   * detection cycle resets it from the input. Use for imperative flows
-   * like disabling during an async operation from a composing directive.
-   *
-   * @param value - `'hard'` (default) for fully disabled, `'soft'` for focusable disabled.
-   */
-  disable(value: 'hard' | 'soft' = 'hard'): void {
-    this.patchState({disabled: value === 'soft' ? 'soft' : true});
-  }
-
-  /**
-   * Programmatically enable the button.
-   *
-   * Counterpart to {@link disable}. Same override caveat applies.
-   */
-  enable(): void {
-    this.patchState({disabled: false});
-  }
-
-  /**
-   * Programmatically patch the button options.
-   *
-   * Merges the provided partial into the current options state.
-   * Useful for composing directives that need to toggle specific
-   * capture-phase flags at runtime.
-   */
-  patchOptions(options: DeepPartial<DisablerOptions>): void {
-    this.updateState((s) => ({
-      ...s,
-      captureClick: options.captureClick ?? s.captureClick,
-      captureMouseDown: options.captureMouseDown ?? s.captureMouseDown,
-      capturePointerDown: options.capturePointerDown ?? s.capturePointerDown,
-    }));
-  }
+  readonly options = pipelineSignal.deep(this._optionsInput);
 
   constructor() {
-    super(
-      linkedSignal(() => ({
-        ...this.#config.options,
-        ...this.optionsInput(),
-        disabled: this.disabledInput(),
-      })),
-      {
-        transform: (s) => ({
-          disabled: !!s.disabled,
-          softDisabled: s.disabled === 'soft',
-          disabledVariant: s.disabled === 'soft' ? 'soft' : s.disabled ? 'hard' : null,
-          captureClick: s.captureClick,
-          captureMouseDown: s.captureMouseDown,
-          capturePointerDown: s.capturePointerDown,
-        }),
-      },
-    );
-
-    this.host.tabIndex.append(({next}) => {
+    this.host.tabIndex.pipe(({next}) => {
       let tabIndex = next();
-      if (!this.#hasDisabledAttribute && this.state.disabled()) {
-        tabIndex = this.state.softDisabled() ? tabIndex : -1;
+      if (!this.#hasDisabledAttribute && this.disabled()) {
+        tabIndex = this.soft() ? tabIndex : -1;
       }
       return tabIndex ?? 0;
     });
 
     if (this.#hasDisabledAttribute) {
-      this.host.disabled.append(() => this.state.disabled() && !this.state.softDisabled());
+      this.host.disabled.pipe(({next}) => (this.hard() ? true : next()));
     }
 
-    this.host.ariaDisabled.append(({next}) => {
+    this.host.ariaDisabled.pipe(({next}) => {
       let ariaDisabled = next();
       if (
-        (this.#hasDisabledAttribute && this.state.softDisabled()) ||
-        (!this.#hasDisabledAttribute && this.state.disabled())
+        (this.#hasDisabledAttribute && this.soft()) ||
+        (!this.#hasDisabledAttribute && this.disabled())
       ) {
-        ariaDisabled = Boolean(this.state.disabled());
+        ariaDisabled = Boolean(this.disabled());
       }
       return ariaDisabled;
     });
 
-    this.host.dataDisabled.append(({next}) => {
+    this.host.dataDisabled.pipe(({next}) => {
       let dataDisabled = next();
-      const value = this.state.disabledVariant();
+      const value = this.variant();
       if (value) {
         dataDisabled = value;
       }
@@ -249,21 +169,21 @@ export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
     });
 
     listener.capture(this.#element, 'click', (event) => {
-      if (this.state.captureClick() && this.state.disabled()) {
+      if (this.options.captureClick() && this.disabled()) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
     });
 
     listener.capture(this.#element, 'mousedown', (event) => {
-      if (this.state.captureMouseDown() && this.state.disabled()) {
+      if (this.options.captureMouseDown() && this.disabled()) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
     });
 
     listener.capture(this.#element, 'pointerdown', (event) => {
-      if (this.state.capturePointerDown() && this.state.disabled()) {
+      if (this.options.capturePointerDown() && this.disabled()) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -272,32 +192,35 @@ export class Disabler extends StatePipeline<DisablerInnerState, DisablerState> {
     // Pipeline-level suppression — composing directives can check `stopped()`
     // after `next()` to detect disabled state. Also serves as fallback when
     // capture-phase suppression is disabled via options.
-    this.host.onClick.append(({stop, next}) => {
-      if (this.state.disabled()) {
+
+    this.host.onClick.pipe(({stop, next, preventDefault}) => {
+      if (this.disabled()) {
+        preventDefault();
         stop();
         return;
       }
       next();
     });
 
-    this.host.onMouseDown.append(({stop, next}) => {
-      if (this.state.disabled()) {
+    this.host.onMouseDown.pipe(({stop, next}) => {
+      if (this.disabled()) {
         stop();
         return;
       }
       next();
     });
 
-    this.host.onPointerDown.append(({stop, next}) => {
-      if (this.state.disabled()) {
+    this.host.onPointerDown.pipe(({stop, next, preventDefault}) => {
+      if (this.disabled()) {
+        preventDefault();
         stop();
         return;
       }
       next();
     });
 
-    this.host.onKeyDown.append(({event, next}) => {
-      if (this.state.softDisabled() && (event.key === 'Enter' || event.key === ' ')) {
+    this.host.onKeyDown.pipe(({event, next}) => {
+      if (this.soft() && (event.key === 'Enter' || event.key === ' ')) {
         event.preventDefault();
       }
       next();
