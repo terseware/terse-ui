@@ -1,17 +1,9 @@
-import {booleanAttribute, Directive, inject, input, linkedSignal, output} from '@angular/core';
+import {booleanAttribute, computed, Directive, inject, input, output, signal} from '@angular/core';
 import {watcher} from '@signality/core';
 import {DataFocus, DataFocusVisible} from '@terse-ui/core/attributes';
 import {OnBlur, OnFocus} from '@terse-ui/core/events';
-import {State} from '@terse-ui/core/state';
 import {injectElement} from '@terse-ui/core/utils';
 import {InputModality, type InputModalityValue} from './input-modality';
-
-/** Focus state snapshot — `focus` carries the origin modality. */
-export interface FocusState {
-  enabled: boolean;
-  focused: InputModalityValue;
-  focusedVisible: boolean;
-}
 
 /**
  * Tracks focus and focus-visible on the host element.
@@ -28,7 +20,7 @@ export interface FocusState {
 @Directive({
   hostDirectives: [DataFocus, DataFocusVisible, OnFocus, OnBlur],
 })
-export class Focus extends State<FocusState> {
+export class Focus {
   readonly #element = injectElement();
   readonly #modality = inject(InputModality);
 
@@ -57,64 +49,37 @@ export class Focus extends State<FocusState> {
    */
   readonly focusVisibleChange = output<boolean>();
 
+  readonly #focused = signal<InputModalityValue>(null);
+  readonly focused = computed(() => (this.focusEnabled() ? this.#focused() : null));
+
+  readonly #focusedVisible = signal(false);
+  readonly focusedVisible = computed(() => (this.focusEnabled() ? this.#focusedVisible() : false));
+
   constructor() {
-    super(
-      linkedSignal(() => ({
-        enabled: this.focusEnabled(),
-        focused: null as InputModalityValue,
-        focusedVisible: false,
-      })),
-      {
-        transform: (s) => ({
-          ...s,
-          focused: s.enabled ? s.focused : null,
-          focusedVisible: s.enabled ? s.focusedVisible : false,
-        }),
-      },
-    );
-
-    watcher(this.state.enabled, (enabled) => {
-      this.patchState({enabled});
-    });
-
-    watcher(this.state.focused, (focused) => {
+    watcher(this.focused, (focused) => {
       this.focusChange.emit(focused);
     });
 
-    watcher(this.state.focusedVisible, (focusVisible) => {
+    watcher(this.focusedVisible, (focusVisible) => {
       this.focusVisibleChange.emit(focusVisible);
     });
 
     // Wire data attributes to reflect focus state
-    inject(DataFocus).value.pipe(({next}) => next(this.state.focused()));
-    inject(DataFocusVisible).value.pipe(({next}) => next(this.state.focusedVisible()));
+    inject(DataFocus).value.pipe(({next}) => next(this.focused()));
+    inject(DataFocusVisible).value.pipe(({next}) => next(this.focusedVisible()));
 
     inject(OnFocus).pipe(({event, next}) => {
-      if (this.state.enabled()) {
-        const target = event.target as HTMLElement | null;
-        const modality = this.#modality.consume();
-        const focusVisible = target?.matches(':focus-visible') === true;
-        this.patchState({focused: modality, focusedVisible: focusVisible});
-      }
+      const target = event.target as HTMLElement | null;
+      this.#focused.set(this.#modality.consume());
+      this.#focusedVisible.set(target?.matches(':focus-visible') === true);
       next();
     });
 
     inject(OnBlur).pipe(({next}) => {
-      if (this.state.enabled()) {
-        this.patchState({focused: null, focusedVisible: false});
-      }
+      this.#focused.set(null);
+      this.#focusedVisible.set(false);
       next();
     });
-  }
-
-  /** Programmatically enable focus tracking. */
-  enable(): void {
-    this.patchState({enabled: true});
-  }
-
-  /** Programmatically disable focus tracking and clear active state. */
-  disable(): void {
-    this.patchState({enabled: false});
   }
 
   /**

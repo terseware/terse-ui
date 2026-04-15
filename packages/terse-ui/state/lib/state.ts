@@ -1,5 +1,4 @@
 import {
-  computed,
   isSignal,
   linkedSignal,
   signal,
@@ -7,12 +6,11 @@ import {
   type Signal,
   type WritableSignal,
 } from '@angular/core';
+import {deepComputed, type DeepSignal} from '@ngrx/signals';
 import {
-  toDeepSignal,
   unwrapMerge,
   type DeepPartial,
   type DeepReadonly,
-  type DeepSignal,
   type MaybeProp,
   type WithRequired,
 } from '@terse-ui/core/utils';
@@ -84,9 +82,9 @@ export class State<S, R = S> {
     const options = args[1];
     const transform = options?.transform ?? ((value: S) => value as unknown as R);
     this.innerState = isSignal(input) ? linkedSignal(input) : signal(input);
-    this.state = toDeepSignal(
-      computed(() => transform(this.resolveState()), options) as Signal<DeepReadonly<R>>,
-    );
+    this.state = deepComputed(() => transform(this.resolveState()) as object) as DeepSignal<
+      DeepReadonly<R>
+    >;
   }
 
   /**

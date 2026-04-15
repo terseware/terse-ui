@@ -1,4 +1,4 @@
-import {booleanAttribute, Directive, inject, input, linkedSignal, output} from '@angular/core';
+import {booleanAttribute, computed, Directive, inject, input, output, signal} from '@angular/core';
 import {watcher} from '@signality/core';
 import {DataHover} from '@terse-ui/core/attributes';
 import {
@@ -8,14 +8,7 @@ import {
   OnPointerLeave,
   OnTouchStart,
 } from '@terse-ui/core/events';
-import {State} from '@terse-ui/core/state';
 import {GlobalPointerEvents} from './global-pointer-events';
-
-/** Hover state snapshot. */
-export interface HoverState {
-  enabled: boolean;
-  hovered: boolean;
-}
 
 /**
  * Tracks pointer hover on the host element.
@@ -24,8 +17,8 @@ export interface HoverState {
  * ignores touch-emulated mouse events on hybrid devices — touch
  * interactions never trigger hover, matching native CSS `:hover` behavior.
  *
- * Disabling hover (via `hoverEnabled` or programmatic `disable()`) clears
- * any active hover state and suppresses future events.
+ * Disabling hover (via `hoverEnabled`) clears any active hover state and
+ * suppresses future events.
  *
  * Uses both `pointerenter`/`pointerleave` and `mouseenter`/`mouseleave` as
  * a fallback for environments where pointer events fire emulated mouse
@@ -41,14 +34,14 @@ export interface HoverState {
     OnTouchStart,
   ],
 })
-export class Hover extends State<HoverState> {
+export class Hover {
   readonly #global = inject(GlobalPointerEvents);
   #localIgnoreMouseEvents = false;
 
   /**
    * Whether hover tracking is enabled.
    *
-   * When `false`, the hover state is forced to `false` and pointer/mouse
+   * When `false`, hover state is forced to `false` and pointer/mouse
    * events are ignored. Useful for disabled elements that should not
    * show hover feedback.
    *
@@ -64,18 +57,16 @@ export class Hover extends State<HoverState> {
    */
   readonly hoverChange = output<boolean>();
 
-  constructor() {
-    super(
-      linkedSignal(() => ({enabled: this.hoverEnabled(), hovered: false})),
-      {transform: (s) => ({...s, hovered: s.enabled ? s.hovered : false})},
-    );
+  readonly #hovered = signal(false);
+  readonly hovered = computed(() => (this.hoverEnabled() ? this.#hovered() : false));
 
-    watcher(this.state.hovered, (hovered) => {
+  constructor() {
+    watcher(this.hovered, (hovered) => {
       this.hoverChange.emit(hovered);
     });
 
     // Wire DataHover to reflect hover state
-    inject(DataHover).value.pipe(({next}) => next(this.state.hovered()));
+    inject(DataHover).value.pipe(({next}) => next(this.hovered()));
 
     // Touch on this element — suppress subsequent emulated mouse events
     inject(OnTouchStart).pipe(({next}) => {
@@ -117,18 +108,8 @@ export class Hover extends State<HoverState> {
     });
   }
 
-  /** Programmatically enable hover tracking. */
-  enable(): void {
-    this.patchState({enabled: true});
-  }
-
-  /** Programmatically disable hover tracking and clear active hover. */
-  disable(): void {
-    this.patchState({enabled: false});
-  }
-
   #onHoverStart(event: Event, pointerType: string): void {
-    if (!this.state.enabled() || pointerType === 'touch' || this.state.hovered()) {
+    if (!this.hoverEnabled() || pointerType === 'touch' || this.#hovered()) {
       return;
     }
 
@@ -136,15 +117,15 @@ export class Hover extends State<HoverState> {
       return;
     }
 
-    this.patchState({hovered: true});
+    this.#hovered.set(true);
   }
 
   #onHoverEnd(pointerType: string): void {
-    if (pointerType === 'touch' || !this.state.hovered()) {
+    if (pointerType === 'touch' || !this.#hovered()) {
       return;
     }
 
-    this.patchState({hovered: false});
+    this.#hovered.set(false);
   }
 
   #containsTarget(event: Event): boolean {

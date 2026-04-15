@@ -7,8 +7,9 @@ import {
   type Signal,
   type WritableSignal,
 } from '@angular/core';
+import {deepComputed, type DeepSignal} from '@ngrx/signals';
 import {setupContext} from '@signality/core/internal';
-import {isUndefined, toDeepSignal, type DeepSignal} from '@terse-ui/core/utils';
+import {isUndefined} from '@terse-ui/core/utils';
 
 export interface PipelineSignalContext<T> {
   get current(): T;
@@ -116,8 +117,8 @@ export const pipelineSignal: PipelineSignalFunction = Object.assign(
       opts?: PipelineSignalOptions<T>,
     ): PipelineDeepSignal<T> {
       const {result, pipe} = createPipeline(source, opts);
-      const readOnly = toDeepSignal(result);
-      return Object.assign(toDeepSignal(result), {pipe, asReadonly: () => readOnly});
+      const readOnly = deepComputed(result);
+      return Object.assign(deepComputed(result), {pipe, asReadonly: () => readOnly});
     },
   },
 );

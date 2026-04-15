@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rules
+
+Do not touch git; no stashes, no commits; unless explicitly instructed to do so.
+
 ## Commands
 
 ```bash

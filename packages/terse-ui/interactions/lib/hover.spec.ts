@@ -149,60 +149,6 @@ describe('Hover', () => {
     });
   });
 
-  describe('programmatic enable/disable', () => {
-    it('disable() clears hover and suppresses events', async () => {
-      @Directive({
-        selector: '[test]',
-        hostDirectives: [TerseHover],
-      })
-      class Host {
-        hover = inject(Hover);
-      }
-
-      const {fixture} = await render(`<div test>Test</div>`, {imports: [Host]});
-      const host = fixture.debugElement.children[0].injector.get(Host);
-      const el = screen.getByText('Test');
-
-      fireEvent.pointerEnter(el, {pointerType: 'mouse'});
-      fixture.detectChanges();
-      expect(el).toHaveAttribute('data-hover');
-
-      host.hover.disable();
-      fixture.detectChanges();
-      expect(el).not.toHaveAttribute('data-hover');
-
-      // Events are suppressed while disabled
-      fireEvent.pointerLeave(el, {pointerType: 'mouse'});
-      fireEvent.pointerEnter(el, {pointerType: 'mouse'});
-      fixture.detectChanges();
-      expect(el).not.toHaveAttribute('data-hover');
-    });
-
-    it('enable() restores hover tracking', async () => {
-      @Directive({
-        selector: '[test]',
-        hostDirectives: [TerseHover],
-      })
-      class Host {
-        hover = inject(Hover);
-      }
-
-      const {fixture} = await render(`<div test>Test</div>`, {imports: [Host]});
-      const host = fixture.debugElement.children[0].injector.get(Host);
-      const el = screen.getByText('Test');
-
-      host.hover.disable();
-      fixture.detectChanges();
-
-      host.hover.enable();
-      fixture.detectChanges();
-
-      fireEvent.pointerEnter(el, {pointerType: 'mouse'});
-      fixture.detectChanges();
-      expect(el).toHaveAttribute('data-hover');
-    });
-  });
-
   describe('composition', () => {
     it('composing directive can access hover state via injection', async () => {
       @Directive({
@@ -219,13 +165,13 @@ describe('Hover', () => {
       const consumer = fixture.debugElement.children[0].injector.get(HoverConsumer);
       const el = screen.getByText('Test');
 
-      expect(consumer.hover.state.hovered()).toBe(false);
+      expect(consumer.hover.hovered()).toBe(false);
 
       fireEvent.pointerEnter(el, {pointerType: 'mouse'});
-      expect(consumer.hover.state.hovered()).toBe(true);
+      expect(consumer.hover.hovered()).toBe(true);
 
       fireEvent.pointerLeave(el, {pointerType: 'mouse'});
-      expect(consumer.hover.state.hovered()).toBe(false);
+      expect(consumer.hover.hovered()).toBe(false);
     });
   });
 });

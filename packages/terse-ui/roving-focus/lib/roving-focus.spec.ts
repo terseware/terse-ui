@@ -2,10 +2,10 @@ import {Component, signal} from '@angular/core';
 import {render, screen, within} from '@testing-library/angular';
 import {userEvent} from '@testing-library/user-event';
 import {expectNoA11yViolations} from '../../test-axe';
-import {RovingFocus} from './roving-focus';
-import {RovingFocusItem} from './roving-focus-item';
+import {TerseRovingFocus} from './terse-roving-focus';
+import {TerseRovingFocusItem} from './terse-roving-focus-item';
 
-const IMPORTS = [RovingFocus, RovingFocusItem];
+const IMPORTS = [TerseRovingFocus, TerseRovingFocusItem];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,9 +32,9 @@ function getItem(name: string): HTMLElement {
  */
 const VERTICAL_TEMPLATE = `
   <div terseRovingFocus role="toolbar" aria-label="actions">
-    <button terseRovingFocusItem disabled softDisabled>Apple</button>
+    <button terseRovingFocusItem disabled="soft">Apple</button>
     <button terseRovingFocusItem>Banana</button>
-    <button terseRovingFocusItem disabled softDisabled>Cherry</button>
+    <button terseRovingFocusItem disabled="soft">Cherry</button>
   </div>
 `;
 
@@ -42,7 +42,7 @@ const HORIZONTAL_TEMPLATE = `
   <div terseRovingFocus role="toolbar" orientation="horizontal" aria-label="tools">
     <button terseRovingFocusItem>One</button>
     <button terseRovingFocusItem>Two</button>
-    <button terseRovingFocusItem disabled softDisabled>Three</button>
+    <button terseRovingFocusItem disabled="soft">Three</button>
   </div>
 `;
 
@@ -89,7 +89,7 @@ describe('RovingFocus', () => {
       // stop if there's nothing better in front of them.
       await render(
         `<div terseRovingFocus role="toolbar" aria-label="actions">
-           <button terseRovingFocusItem disabled softDisabled>Apple</button>
+           <button terseRovingFocusItem disabled="soft">Apple</button>
            <button terseRovingFocusItem>Banana</button>
          </div>`,
         {imports: IMPORTS},
@@ -452,7 +452,7 @@ describe('RovingFocus', () => {
     it('wrap traversal skips hard-disabled items', async () => {
       await render(
         `<div terseRovingFocus role="toolbar" aria-label="actions">
-           <button terseRovingFocusItem disabled softDisabled>Apple</button>
+           <button terseRovingFocusItem disabled="soft">Apple</button>
            <button terseRovingFocusItem>Banana</button>
            <button terseRovingFocusItem disabled>Cherry</button>
          </div>`,
@@ -634,7 +634,7 @@ describe('RovingFocus', () => {
         `<div terseRovingFocus role="toolbar" aria-label="actions">
            <button terseRovingFocusItem>Enabled</button>
            <button terseRovingFocusItem disabled aria-label="Hard disabled">HD</button>
-           <button terseRovingFocusItem disabled softDisabled aria-label="Soft disabled">SD</button>
+           <button terseRovingFocusItem disabled="soft" aria-label="Soft disabled">SD</button>
          </div>`,
         {imports: IMPORTS},
       );

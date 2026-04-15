@@ -1,6 +1,5 @@
 export * from './lib/config-builder';
 export * from './lib/deep-merge';
-export * from './lib/deep-signal';
 export * from './lib/id-generator';
 export * from './lib/inject-element';
 export * from './lib/signal-validators';
