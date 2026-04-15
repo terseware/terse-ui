@@ -1,19 +1,11 @@
-import {Component, Directive, inject} from '@angular/core';
-import {Role} from '@terse-ui/core/attr';
+import {Component, Directive} from '@angular/core';
 import {TerseButton} from '@terse-ui/core/button';
 
 @Directive({
   selector: '[appMenuItem]',
   hostDirectives: [TerseButton],
 })
-export class AppMenuItem {
-  constructor() {
-    inject(Role).append(({next}) => {
-      const value = next();
-      return value ?? 'menuitem';
-    });
-  }
-}
+export class AppMenuItem {}
 
 @Component({
   selector: 'app-home',

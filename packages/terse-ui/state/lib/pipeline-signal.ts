@@ -1,9 +1,9 @@
 import {
   computed,
-  Injector,
   isSignal,
   signal,
   type CreateComputedOptions,
+  type Injector,
   type Signal,
   type WritableSignal,
 } from '@angular/core';
@@ -13,8 +13,8 @@ import {isUndefined, toDeepSignal, type DeepSignal} from '@terse-ui/core/utils';
 export interface PipelineSignalContext<T> {
   get current(): T;
   next(value?: T): T;
-  stopped(): boolean;
-  stop(): void;
+  pipelineHalted(): boolean;
+  haltPipeline(): void;
 }
 
 export type PipelineSignalHandler<T> = (ctx: PipelineSignalContext<T>) => T;
@@ -36,8 +36,13 @@ interface Methods<T> {
   pipe(handler: PipelineSignalHandler<T>, opts?: PipelinePipeOptions): () => void;
 }
 
-export interface PipelineSignal<T> extends Signal<T>, Methods<T> {}
-export type PipelineDeepSignal<T extends object> = DeepSignal<T> & Methods<T>;
+export interface PipelineSignal<T> extends Signal<T>, Methods<T> {
+  asReadonly(): Signal<T>;
+}
+export type PipelineDeepSignal<T extends object> = DeepSignal<T> &
+  Methods<T> & {
+    asReadonly(): DeepSignal<T>;
+  };
 
 export interface PipelineSignalFunction {
   <T>(source: T | Signal<T>, opts?: PipelineSignalOptions<T>): PipelineSignal<T>;
@@ -60,22 +65,23 @@ function createPipeline<T>(
 }
 
 /**
- * Run handlers from outermost to innermost. `next()` delegates inward;
- * `stop()` halts further delegation. Falls back to state when no handlers remain.
+ * Run handlers in registration order (first piped runs first). `next()` delegates
+ * to the next handler; `haltPipeline()` halts further delegation. Falls back to
+ * state when no handlers remain.
  */
 function executePipeline<T>(handlers: PipelineSignalHandler<T>[], state: T): T {
-  let stopped = false;
+  let halted = false;
 
   const execute = (index: number, current: T): T => {
-    if (stopped || index >= handlers.length) return current;
+    if (halted || index >= handlers.length) return current;
     return (handlers[index] as PipelineSignalHandler<T>)({
       get current() {
         return current;
       },
       next: (value?: T) => execute(index + 1, isUndefined(value) ? current : value),
-      stopped: () => stopped,
-      stop() {
-        stopped = true;
+      pipelineHalted: () => halted,
+      haltPipeline() {
+        halted = true;
       },
     });
   };
@@ -101,7 +107,8 @@ function usePipeline<T>(
 export const pipelineSignal: PipelineSignalFunction = Object.assign(
   function <T>(source: T | Signal<T>, opts?: PipelineSignalOptions<T>): PipelineSignal<T> {
     const {result, pipe} = createPipeline(source, opts);
-    return Object.assign(result, {pipe});
+    const readOnly = computed(() => result());
+    return Object.assign(result, {pipe, asReadonly: () => readOnly});
   },
   {
     deep<T extends object>(
@@ -109,7 +116,8 @@ export const pipelineSignal: PipelineSignalFunction = Object.assign(
       opts?: PipelineSignalOptions<T>,
     ): PipelineDeepSignal<T> {
       const {result, pipe} = createPipeline(source, opts);
-      return Object.assign(toDeepSignal(result), {pipe});
+      const readOnly = toDeepSignal(result);
+      return Object.assign(toDeepSignal(result), {pipe, asReadonly: () => readOnly});
     },
   },
 );

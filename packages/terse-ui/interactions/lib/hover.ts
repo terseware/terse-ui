@@ -32,7 +32,6 @@ export interface HoverState {
  * events after a touch interaction.
  */
 @Directive({
-  exportAs: 'hover',
   hostDirectives: [
     DataHover,
     OnPointerEnter,
@@ -76,16 +75,16 @@ export class Hover extends State<HoverState> {
     });
 
     // Wire DataHover to reflect hover state
-    inject(DataHover).append(({next}) => next(this.state.hovered()));
+    inject(DataHover).value.pipe(({next}) => next(this.state.hovered()));
 
     // Touch on this element — suppress subsequent emulated mouse events
-    inject(OnTouchStart).append(({next}) => {
+    inject(OnTouchStart).pipe(({next}) => {
       this.#localIgnoreMouseEvents = true;
       next();
     });
 
     // Pointer events — primary hover detection
-    inject(OnPointerEnter).append(({event, next}) => {
+    inject(OnPointerEnter).pipe(({event, next}) => {
       if (this.#global.globalIgnoreMouseEvents && event.pointerType === 'mouse') {
         next();
         return;
@@ -94,7 +93,7 @@ export class Hover extends State<HoverState> {
       next();
     });
 
-    inject(OnPointerLeave).append(({event, next}) => {
+    inject(OnPointerLeave).pipe(({event, next}) => {
       if (this.#containsTarget(event)) {
         this.#onHoverEnd(event.pointerType);
       }
@@ -102,7 +101,7 @@ export class Hover extends State<HoverState> {
     });
 
     // Mouse events — fallback for touch-emulated mouse suppression
-    inject(OnMouseEnter).append(({event, next}) => {
+    inject(OnMouseEnter).pipe(({event, next}) => {
       if (!this.#localIgnoreMouseEvents && !this.#global.globalIgnoreMouseEvents) {
         this.#onHoverStart(event, 'mouse');
       }
@@ -110,7 +109,7 @@ export class Hover extends State<HoverState> {
       next();
     });
 
-    inject(OnMouseLeave).append(({event, next}) => {
+    inject(OnMouseLeave).pipe(({event, next}) => {
       if (this.#containsTarget(event)) {
         this.#onHoverEnd('mouse');
       }

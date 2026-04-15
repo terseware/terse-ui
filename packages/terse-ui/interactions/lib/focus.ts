@@ -26,7 +26,6 @@ export interface FocusState {
  * focusable — this only controls the tracked state and data attributes.
  */
 @Directive({
-  exportAs: 'focus',
   hostDirectives: [DataFocus, DataFocusVisible, OnFocus, OnBlur],
 })
 export class Focus extends State<FocusState> {
@@ -87,10 +86,10 @@ export class Focus extends State<FocusState> {
     });
 
     // Wire data attributes to reflect focus state
-    inject(DataFocus).append(({next}) => next(this.state.focused()));
-    inject(DataFocusVisible).append(({next}) => next(this.state.focusedVisible()));
+    inject(DataFocus).value.pipe(({next}) => next(this.state.focused()));
+    inject(DataFocusVisible).value.pipe(({next}) => next(this.state.focusedVisible()));
 
-    inject(OnFocus).append(({event, next}) => {
+    inject(OnFocus).pipe(({event, next}) => {
       if (this.state.enabled()) {
         const target = event.target as HTMLElement | null;
         const modality = this.#modality.consume();
@@ -100,7 +99,7 @@ export class Focus extends State<FocusState> {
       next();
     });
 
-    inject(OnBlur).append(({next}) => {
+    inject(OnBlur).pipe(({next}) => {
       if (this.state.enabled()) {
         this.patchState({focused: null, focusedVisible: false});
       }

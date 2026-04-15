@@ -5,28 +5,12 @@ import {setupContext} from '@signality/core/internal';
  * Context passed to each event pipeline handler.
  *
  * Handlers receive this context and perform side-effects (preventDefault,
- * click, etc.). Use `next()` to delegate, `stop()` to halt, or simply
+ * click, etc.). Use `next()` to delegate, `haltPipeline()` to halt, or simply
  * return without calling `next()` to swallow the event.
  */
 export interface EventPipelineContext<E extends Event> {
   /** The DOM event being processed. */
   get event(): E;
-
-  /**
-   * True if `prevent()` was called by a prior handler in this pipeline run.
-   *
-   * Tracks pipeline-level state — may differ from `event.defaultPrevented`
-   * if external code also called `preventDefault()`.
-   */
-  defaultPrevented(): boolean;
-
-  /**
-   * True if a downstream handler called `stop()`.
-   *
-   * Check after `next()` to decide whether to apply your own logic.
-   * A function (not a getter) so it survives destructuring.
-   */
-  stopped(): boolean;
 
   /**
    * Call `event.preventDefault()`, idempotent within a pipeline run.
@@ -36,8 +20,24 @@ export interface EventPipelineContext<E extends Event> {
    */
   preventDefault(): void;
 
+  /**
+   * True if `preventDefault()` was called by a prior handler in this pipeline run.
+   *
+   * Tracks pipeline-level state — may differ from `event.defaultPrevented`
+   * if external code also called `preventDefault()`.
+   */
+  defaultPrevented(): boolean;
+
   /** Halt the pipeline — remaining downstream handlers will not run. */
-  stop(): void;
+  haltPipeline(): void;
+
+  /**
+   * True if a downstream handler called `haltPipeline()`.
+   *
+   * Check after `next()` to decide whether to apply your own logic.
+   * A function (not a getter) so it survives destructuring.
+   */
+  pipelineHalted(): boolean;
 
   /** Run the next handler in the pipeline. */
   next(): void;
@@ -56,8 +56,8 @@ export type EventPipelineHandler<E extends Event> = (ctx: EventPipelineContext<E
  *
  * Subclasses bind a host event (e.g. `(keydown)`) and call {@link dispatch}.
  * Composing directives inject the pipeline and call {@link pipe} to
- * intercept events. Handlers delegate via `next()` or halt via `stop()`.
- * Last piped = outermost = runs first.
+ * intercept events. Handlers delegate via `next()` or halt via `haltPipeline()`.
+ * Registration order determines run order — first piped runs first.
  *
  * @example
  * ```ts
@@ -68,8 +68,8 @@ export type EventPipelineHandler<E extends Event> = (ctx: EventPipelineContext<E
  * // Composing directive — intercepts Space for immediate activation
  * class CompositeItem {
  *   constructor() {
- *     inject(OnKeyDown).pipe(({event, next, stop}) => {
- *       if (event.key === ' ') { element.click(); stop(); return; }
+ *     inject(OnKeyDown).pipe(({event, next, haltPipeline}) => {
+ *       if (event.key === ' ') { element.click(); haltPipeline(); return; }
  *       next();
  *     });
  *   }
@@ -117,18 +117,18 @@ export class EventPipeline<E extends Event = Event> {
 }
 
 /**
- * Run handlers from outermost to innermost. `next()` delegates inward;
- * `stop()` halts further delegation.
+ * Run handlers in registration order (first piped runs first). `next()` delegates
+ * to the next handler; `haltPipeline()` halts further delegation.
  */
 function executeEventPipeline<E extends Event>(
   handlers: EventPipelineHandler<E>[],
   event: E,
 ): void {
-  let stopped = false;
+  let halted = false;
   let defaultPrevented = event.defaultPrevented;
 
   const execute = (index: number): void => {
-    if (stopped || index >= handlers.length) return;
+    if (halted || index >= handlers.length) return;
     handlers[index]?.({
       get event() {
         return event;
@@ -136,8 +136,8 @@ function executeEventPipeline<E extends Event>(
       defaultPrevented() {
         return defaultPrevented;
       },
-      stopped() {
-        return stopped;
+      pipelineHalted() {
+        return halted;
       },
       preventDefault() {
         if (!defaultPrevented) {
@@ -145,11 +145,11 @@ function executeEventPipeline<E extends Event>(
           event.preventDefault();
         }
       },
-      stop() {
-        stopped = true;
+      haltPipeline() {
+        halted = true;
       },
       next() {
-        if (!stopped) {
+        if (!halted) {
           execute(index + 1);
         }
       },

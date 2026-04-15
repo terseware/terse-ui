@@ -4,7 +4,6 @@ import {Focus} from '@terse-ui/core/interactions';
 import {RovingFocusStore} from './roving-focus-store';
 
 @Directive({
-  exportAs: 'rovingFocusItem',
   hostDirectives: [IdAttribute, TabIndex, Focus],
 })
 export class RovingFocusItem {
@@ -15,7 +14,7 @@ export class RovingFocusItem {
   readonly #store = inject(RovingFocusStore);
 
   constructor() {
-    this.#tabIndex.append(({next}) => next(this.#focused.state.focused() ? 0 : -1));
+    this.#tabIndex.value.pipe(({next}) => next(this.#focused.state.focused() ? 0 : -1));
     inject(DestroyRef).onDestroy(this.#store.registerItem(this));
   }
 }

@@ -1,7 +1,7 @@
 import {computed, Directive, inject, input} from '@angular/core';
 import {listener} from '@signality/core';
 import {AriaDisabled, DataDisabled, DisabledAttribute, TabIndex} from '@terse-ui/core/attributes';
-import {OnClick, OnKeyDown, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
+import {OnClick, OnKeyDown, OnKeyUp, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
 import {pipelineSignal} from '@terse-ui/core/state';
 import {configBuilder, hasDisabledAttribute, injectElement, isBoolean} from '@terse-ui/core/utils';
 
@@ -31,31 +31,31 @@ const [provideDisablerOptions, injectDisablerOptions] = configBuilder<DisablerOp
 export {provideDisablerOptions};
 
 /**
- * Base button behavior: disabled states, keyboard activation, and ARIA attributes.
+ * Disabled-state behavior: ARIA + DOM attributes, tabindex, and event suppression.
  *
- * Not used directly in templates — compose via `hostDirectives` to build
- * higher-level primitives (menu items, toolbar buttons, toggles).
+ * Not used directly in templates — compose via `hostDirectives`. Pairs with
+ * {@link Button} to build full button primitives (see `TerseButton`).
  *
  * Handles:
  * - Tri-state disabled (`true` | `'soft'` | `false`) with correct `disabled`,
  *   `aria-disabled`, `data-disabled`, and `tabindex` semantics
- * - Keyboard activation: Enter on keydown, Space on keyup (non-native elements)
- * - Native `<button>` detection — defers to browser for Enter/Space handling
  * - Capture-phase event suppression when disabled (blocks template bindings)
- * - Pipeline-level event suppression via OnClick/OnMouseDown/OnPointerDown (composable)
- * - Role/type auto-assignment for non-native elements
+ * - Pipeline-level event suppression via OnClick/OnMouseDown/OnPointerDown
+ *   (composable — outer handlers can detect disabled via `pipelineHalted()`)
+ * - Soft-disabled keydown: prevents default on Enter/Space without halting
+ *   the pipeline, leaving outer handlers free to react
  */
 @Directive({
-  exportAs: 'disabler',
   hostDirectives: [
-    TabIndex,
-    DisabledAttribute,
-    DataDisabled,
     AriaDisabled,
-    OnKeyDown,
+    DataDisabled,
+    DisabledAttribute,
     OnClick,
+    OnKeyDown,
+    OnKeyUp,
     OnMouseDown,
     OnPointerDown,
+    TabIndex,
   ],
 })
 export class Disabler {
@@ -63,16 +63,15 @@ export class Disabler {
   readonly #element = injectElement();
   readonly #hasDisabledAttribute = hasDisabledAttribute(this.#element);
 
-  readonly host = {
-    tabIndex: inject(TabIndex).value,
-    disabled: inject(DisabledAttribute).value,
-    ariaDisabled: inject(AriaDisabled).value,
-    dataDisabled: inject(DataDisabled).value,
-    onKeyDown: inject(OnKeyDown),
-    onClick: inject(OnClick),
-    onMouseDown: inject(OnMouseDown),
-    onPointerDown: inject(OnPointerDown),
-  } as const;
+  readonly #ariaDisabled = inject(AriaDisabled).value;
+  readonly #dataDisabled = inject(DataDisabled).value;
+  readonly #disabled = inject(DisabledAttribute).value;
+  readonly #onClick = inject(OnClick);
+  readonly #onKeyDown = inject(OnKeyDown);
+  readonly #onKeyUp = inject(OnKeyUp);
+  readonly #onMouseDown = inject(OnMouseDown);
+  readonly #onPointerDown = inject(OnPointerDown);
+  readonly #tabIndex = inject(TabIndex).value;
 
   /**
    * Controls the disabled state of the button.
@@ -136,7 +135,7 @@ export class Disabler {
   readonly options = pipelineSignal.deep(this._optionsInput);
 
   constructor() {
-    this.host.tabIndex.pipe(({next}) => {
+    this.#tabIndex.pipe(({next}) => {
       let tabIndex = next();
       if (!this.#hasDisabledAttribute && this.disabled()) {
         tabIndex = this.soft() ? tabIndex : -1;
@@ -145,10 +144,16 @@ export class Disabler {
     });
 
     if (this.#hasDisabledAttribute) {
-      this.host.disabled.pipe(({next}) => (this.hard() ? true : next()));
+      this.#disabled.pipe(({next}) => {
+        let disabled = next();
+        if (this.hard()) {
+          disabled = true;
+        }
+        return disabled;
+      });
     }
 
-    this.host.ariaDisabled.pipe(({next}) => {
+    this.#ariaDisabled.pipe(({next}) => {
       let ariaDisabled = next();
       if (
         (this.#hasDisabledAttribute && this.soft()) ||
@@ -159,7 +164,7 @@ export class Disabler {
       return ariaDisabled;
     });
 
-    this.host.dataDisabled.pipe(({next}) => {
+    this.#dataDisabled.pipe(({next}) => {
       let dataDisabled = next();
       const value = this.variant();
       if (value) {
@@ -189,39 +194,57 @@ export class Disabler {
       }
     });
 
-    // Pipeline-level suppression — composing directives can check `stopped()`
+    // Pipeline-level suppression — composing directives can check `pipelineHalted()`
     // after `next()` to detect disabled state. Also serves as fallback when
     // capture-phase suppression is disabled via options.
 
-    this.host.onClick.pipe(({stop, next, preventDefault}) => {
+    this.#onClick.pipe(({haltPipeline, next, preventDefault}) => {
       if (this.disabled()) {
         preventDefault();
-        stop();
+        haltPipeline();
         return;
       }
       next();
     });
 
-    this.host.onMouseDown.pipe(({stop, next}) => {
+    this.#onMouseDown.pipe(({haltPipeline, next}) => {
       if (this.disabled()) {
-        stop();
+        haltPipeline();
         return;
       }
       next();
     });
 
-    this.host.onPointerDown.pipe(({stop, next, preventDefault}) => {
+    this.#onPointerDown.pipe(({haltPipeline, next, preventDefault}) => {
       if (this.disabled()) {
         preventDefault();
-        stop();
+        haltPipeline();
         return;
       }
       next();
     });
 
-    this.host.onKeyDown.pipe(({event, next}) => {
+    this.#onKeyDown.pipe(({event, next, haltPipeline, preventDefault}) => {
+      if (this.hard()) {
+        // Let Tab through so a programmatically-focused disabled element
+        // can still be escaped; everything else gets inert treatment.
+        if (event.key !== 'Tab') preventDefault();
+        haltPipeline();
+        return;
+      }
+
       if (this.soft() && (event.key === 'Enter' || event.key === ' ')) {
-        event.preventDefault();
+        preventDefault();
+      }
+
+      next();
+    });
+
+    this.#onKeyUp.pipe(({event, next, haltPipeline, preventDefault}) => {
+      if (this.hard()) {
+        if (event.key !== 'Tab') preventDefault();
+        haltPipeline();
+        return;
       }
       next();
     });

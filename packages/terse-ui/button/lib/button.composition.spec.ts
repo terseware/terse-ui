@@ -24,35 +24,43 @@ class TestCompositeItem {
   readonly #element = inject(ElementRef).nativeElement as HTMLElement;
 
   constructor() {
-    // Space fires on keydown (immediate activation)
-    inject(OnKeyDown).append(({event, next, stop, stopped}) => {
-      next();
-      if (stopped()) return;
+    // Space fires on keydown (immediate activation). Prepend so the composite
+    // wrapper sees defaultPrevented set by inner Button before delegating.
+    inject(OnKeyDown).pipe(
+      ({event, next, haltPipeline, pipelineHalted}) => {
+        next();
+        if (pipelineHalted()) return;
 
-      if (event.target === event.currentTarget && event.key === ' ') {
-        const role = (event.currentTarget as HTMLElement).getAttribute('role');
-        const isTextNav = role?.startsWith('menuitem') || role === 'option' || role === 'gridcell';
+        if (event.target === event.currentTarget && event.key === ' ') {
+          const role = (event.currentTarget as HTMLElement).getAttribute('role');
+          const isTextNav =
+            role?.startsWith('menuitem') || role === 'option' || role === 'gridcell';
 
-        // Text navigation roles: if already defaultPrevented, skip activation
-        if (event.defaultPrevented && isTextNav) {
-          return;
+          // Text navigation roles: if already defaultPrevented, skip activation
+          if (event.defaultPrevented && isTextNav) {
+            return;
+          }
+
+          event.preventDefault();
+          this.#element.click();
+          haltPipeline();
         }
-
-        event.preventDefault();
-        this.#element.click();
-        stop();
-      }
-    });
+      },
+      {prepend: true},
+    );
 
     // Suppress Space on keyup (activation already happened on keydown)
-    inject(OnKeyUp).append(({event, next, stop}) => {
-      if (event.target === event.currentTarget && event.key === ' ') {
-        event.preventDefault();
-        stop();
-        return;
-      }
-      next();
-    });
+    inject(OnKeyUp).pipe(
+      ({event, next, haltPipeline}) => {
+        if (event.target === event.currentTarget && event.key === ' ') {
+          event.preventDefault();
+          haltPipeline();
+          return;
+        }
+        next();
+      },
+      {prepend: true},
+    );
   }
 }
 
@@ -62,7 +70,7 @@ class TestCompositeItem {
 })
 class TestMenuItem {
   constructor() {
-    inject(RoleAttribute).append(({next}) => next('menuitem'));
+    inject(RoleAttribute).value.pipe(({next}) => next('menuitem'));
   }
 }
 
@@ -75,7 +83,7 @@ class TestMenuItem {
 })
 class TestMenuItemComposite {
   constructor() {
-    inject(RoleAttribute).append(({next}) => next('menuitem'));
+    inject(RoleAttribute).value.pipe(({next}) => next('menuitem'));
   }
 }
 
@@ -90,14 +98,19 @@ class TestMenuItemComposite {
 class TestRovingItem {
   readonly navigated = signal<string | null>(null);
   constructor() {
-    inject(OnKeyDown).append(({event, next}) => {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        this.navigated.set(event.key);
-        event.preventDefault();
-        return; // handle navigation, don't pass to button
-      }
-      next();
-    });
+    // Roving focus must intercept arrows even when the button is disabled
+    // (so navigation works on disabled items). Prepend to run before Button.
+    inject(OnKeyDown).pipe(
+      ({event, next}) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          this.navigated.set(event.key);
+          event.preventDefault();
+          return; // handle navigation, don't pass to button
+        }
+        next();
+      },
+      {prepend: true},
+    );
   }
 }
 
@@ -234,7 +247,7 @@ describe('Button composition', () => {
     })
     class TestGridCell {
       constructor() {
-        inject(RoleAttribute).append(({next}) => next('gridcell'));
+        inject(RoleAttribute).value.pipe(({next}) => next('gridcell'));
       }
     }
 
@@ -268,7 +281,7 @@ describe('Button composition', () => {
     })
     class TestSwitch {
       constructor() {
-        inject(RoleAttribute).append(({next}) => next('switch'));
+        inject(RoleAttribute).value.pipe(({next}) => next('switch'));
       }
     }
 
@@ -294,27 +307,27 @@ describe('Button composition', () => {
   });
 
   // -----------------------------------------------------------------------
-  // stop() replaces preventBaseUIHandler
+  // haltPipeline() replaces preventBaseUIHandler
   // -----------------------------------------------------------------------
 
-  it('stop() on keydown prevents composite Space activation', async () => {
+  it('haltPipeline() on keydown prevents composite Space activation', async () => {
     const handleClick = vi.fn();
 
     @Directive({
-      selector: '[testStopper]',
+      selector: '[testHaltPipeline]',
       hostDirectives: [TestCompositeItem],
     })
-    class TestStopper {
+    class TestHalter {
       constructor() {
-        inject(OnKeyDown).append(({next, stop}) => {
-          stop(); // equivalent to preventBaseUIHandler()
+        inject(OnKeyDown).pipe(({next, haltPipeline}) => {
+          haltPipeline();
           next();
         });
       }
     }
 
-    await render(`<span testStopper (click)="handleClick()"></span>`, {
-      imports: [TestStopper],
+    await render(`<span testHaltPipeline (click)="handleClick()"></span>`, {
+      imports: [TestHalter],
       componentProperties: {handleClick},
     });
 
@@ -367,8 +380,8 @@ describe('Button composition', () => {
     const item = screen.getByRole('button');
     const rovingItem = fixture.debugElement.children[0].injector.get(TestRovingItem);
 
-    // Roving item's handler runs first (outermost), handles arrows
-    // before delegating to button's disabled stop()
+    // Roving item's handler is prepended, handles arrows
+    // before delegating to Disabler's hard-disabled haltPipeline()
     fireEvent.keyDown(item, {key: 'ArrowDown'});
     expect(rovingItem.navigated()).toBe('ArrowDown');
   });
@@ -391,9 +404,9 @@ describe('Button composition', () => {
       })
       class ClickConsumer {
         constructor() {
-          inject(OnClick).append(({next, stopped}) => {
+          inject(OnClick).pipe(({next, pipelineHalted}) => {
             next();
-            if (!stopped()) pipelineSpy();
+            if (!pipelineHalted()) pipelineSpy();
           });
         }
       }
@@ -416,9 +429,9 @@ describe('Button composition', () => {
       })
       class MouseConsumer {
         constructor() {
-          inject(OnMouseDown).append(({next, stopped}) => {
+          inject(OnMouseDown).pipe(({next, pipelineHalted}) => {
             next();
-            if (!stopped()) pipelineSpy();
+            if (!pipelineHalted()) pipelineSpy();
           });
         }
       }
@@ -441,9 +454,9 @@ describe('Button composition', () => {
       })
       class PointerConsumer {
         constructor() {
-          inject(OnPointerDown).append(({next, stopped}) => {
+          inject(OnPointerDown).pipe(({next, pipelineHalted}) => {
             next();
-            if (!stopped()) pipelineSpy();
+            if (!pipelineHalted()) pipelineSpy();
           });
         }
       }
@@ -466,9 +479,9 @@ describe('Button composition', () => {
       })
       class ClickConsumer {
         constructor() {
-          inject(OnClick).append(({next, stopped}) => {
+          inject(OnClick).pipe(({next, pipelineHalted}) => {
             next();
-            if (!stopped()) pipelineSpy();
+            if (!pipelineHalted()) pipelineSpy();
           });
         }
       }
@@ -479,7 +492,7 @@ describe('Button composition', () => {
       expect(pipelineSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('composing directive detects disabled via stopped() on click', async () => {
+    it('composing directive detects disabled via pipelineHalted() on click', async () => {
       const results: boolean[] = [];
 
       @Directive({
@@ -487,29 +500,34 @@ describe('Button composition', () => {
         hostDirectives: [TerseButton],
       })
       class TestMenuTrigger {
-        btn = inject(TerseButton);
         constructor() {
-          inject(OnClick).append(({next, stopped}) => {
-            next();
-            results.push(stopped());
-          });
+          inject(OnClick).pipe(
+            ({next, pipelineHalted}) => {
+              next();
+              results.push(pipelineHalted());
+            },
+            {prepend: true},
+          );
         }
       }
 
-      const {fixture} = await render(`<button testMenuTrigger>Menu</button>`, {
-        imports: [TestMenuTrigger],
-      });
+      // Disable capture-phase suppression so the click reaches the pipeline,
+      // then toggle soft-disabled via rerender to observe pipelineHalted() flip.
+      const {rerender, fixture} = await render(
+        `<button testMenuTrigger [disabled]="disabled"
+                 [terseDisablerOptions]="{captureClick: false}">Menu</button>`,
+        {
+          imports: [TestMenuTrigger],
+          componentProperties: {disabled: false as boolean | 'soft'},
+        },
+      );
 
-      const trigger = fixture.debugElement.children[0].injector.get(TestMenuTrigger);
       const button = screen.getByRole('button');
 
-      // Enabled: stopped() is false
       fireEvent.click(button);
       expect(results).toEqual([false]);
 
-      // Disable capture so the event reaches the pipeline, then soft-disable
-      trigger.btn.patchOptions({captureClick: false});
-      trigger.btn.disable('soft');
+      await rerender({componentProperties: {disabled: 'soft'}});
       fixture.detectChanges();
 
       fireEvent.click(button);

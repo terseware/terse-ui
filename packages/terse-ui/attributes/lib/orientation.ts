@@ -5,7 +5,6 @@ import {RoleAttribute} from './role-attribute';
 export type OrientationValue = 'vertical' | 'horizontal' | null;
 
 @Directive({
-  exportAs: 'orientation',
   hostDirectives: [RoleAttribute],
   host: {
     '[attr.aria-orientation]': 'value()',

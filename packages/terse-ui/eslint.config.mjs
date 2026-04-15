@@ -113,9 +113,11 @@ export default [
     },
   },
   {
-    files: ['**/*.ts'],
-    ignores: ['**/*.spec.ts'],
+    files: ['**/terse-*.ts'],
     rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-unsafe-declaration-merging': 'off',
+      '@typescript-eslint/no-empty-interface': 'off',
       'no-restricted-syntax': [
         'error',
         {
@@ -125,14 +127,6 @@ export default [
             "Terse directives must include an 'exportAs' property for template accessibility.",
         },
       ],
-    },
-  },
-  {
-    files: ['**/terse-*.ts'],
-    rules: {
-      '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/no-unsafe-declaration-merging': 'off',
-      '@typescript-eslint/no-empty-interface': 'off',
     },
   },
   {

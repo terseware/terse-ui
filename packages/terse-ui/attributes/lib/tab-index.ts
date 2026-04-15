@@ -6,10 +6,7 @@ function transform(v: string | number | null | undefined): number | null {
   return isNil(v) ? null : numberAttribute(v, 0);
 }
 
-@Directive({
-  exportAs: 'tabIndex',
-  host: {'[attr.tabindex]': 'value()'},
-})
+@Directive({host: {'[attr.tabindex]': 'value()'}})
 export class TabIndex {
   readonly #host = inject(new HostAttributeToken('tabindex'), {optional: true});
   readonly #init = this.#host ? numberAttribute(this.#host, 0) : null;

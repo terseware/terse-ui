@@ -15,17 +15,17 @@ pnpm test                   # nx run-many -t test
 pnpm fix                    # nx run-many -t lint --fix
 
 # Run E2E tests
-pnpm e2e                    # npx nx e2e ui -- --project=chromium
+pnpm e2e                    # npx nx e2e terse-ui -- --project=chromium
 
 # Single project commands
-npx nx build ui
-npx nx test ui
-npx nx lint ui
+npx nx build terse-ui
+npx nx test terse-ui --no-tui
+npx nx lint terse-ui
 npx nx serve web
 npx nx serve examples
 
 # Run a single test file
-npx vitest run --config ./packages/ui/vite.config.mts  ./packages/ui/button/lib/button.spec.ts  # Single test file
+npx vitest run --config ./packages/terse-ui/vite.config.mts ./packages/terse-ui/button/lib/button.spec.ts
 ```
 
 Test runner is Vitest with `@analogjs/vitest-angular`. Tests use `@testing-library/angular` + `@testing-library/user-event`.
@@ -36,33 +36,65 @@ Nx monorepo (`pnpm` workspace) with Angular 21, TypeScript 6, and Vite.
 
 ### Packages
 
-- **`packages/ui`** — Publishable Angular component library (`@terseware/ui`). Built with ng-packagr. Each subdirectory is a secondary entry point (e.g., `@terseware/ui/menu`, `@terseware/ui/button`).
+- **`packages/terse-ui`** — Publishable Angular component library (`@terseware/ui`). Built with ng-packagr. Each subdirectory is a secondary entry point (e.g., `@terseware/ui/button`, `@terseware/ui/disabler`, `@terseware/ui/state`).
 - **`apps/web`** — SSR-enabled demo app consuming the library.
 - **`apps/examples`** — Client-side demo showing wrapper directive composition patterns.
 
-### UI Library Layering
+### Library Layering
 
-The library follows a strict **atoms → primitives → composites** hierarchy:
+The library follows an **atoms → primitives → terse wrappers** hierarchy:
 
-**Atoms** (`packages/ui/atoms/`) — Single-purpose directives that control one host attribute or ARIA property. Each atom extends `Source<T>` and uses `linkedSignal()` to bridge inputs to reactive state. Examples: `AttrRole`, `AttrType`, `TabIndex`, `Disabler`, `OpenClose`, `KeyboardEvents`, `Classes`.
+**Atoms** live under the attribute/event/state entry points — single-purpose directives/primitives that manage one concern:
 
-**Primitives** (`packages/ui/button/`, `anchor/`, etc.) — Behavioral directives that compose atoms via `hostDirectives`. Examples: `Activatable` composes `Disabler` + `TabIndex`; `Button` composes `Activatable` + `AttrRole` + `AttrType`.
+- `packages/terse-ui/attributes/` — attribute directives (`TabIndex`, `RoleAttribute`, `TypeAttribute`, `DisabledAttribute`, `AriaDisabled`, `DataDisabled`/`DataFocus`/`DataHover`, `Orientation`, `IdAttribute`). Each exposes a `.value` `pipelineSignal` composing directives can pipe into.
+- `packages/terse-ui/events/` — event pipeline directives (`OnKeyDown`, `OnClick`, `OnPointerDown`, …) extending `EventPipeline<E>`. Composing directives call `.pipe(...)` to intercept.
+- `packages/terse-ui/state/` — reactive containers (`State<S,R>`, `pipelineSignal`, entity helpers).
 
-**Composites** (`packages/ui/menu/`, `roving-focus/`, `focus-trap/`) — Full-featured components composed from primitives. Example: `MenuTrigger` composes `Button` + `Anchor` + `AriaHasPopup` + `OpenClose`.
+**Primitives** (`packages/terse-ui/button/`, `packages/terse-ui/disabler/`, `packages/terse-ui/interactions/`, etc.) — behavioral directives that compose atoms via `hostDirectives`. They intentionally DO NOT forward inputs so downstream composers can freely alias. Examples: `Button`, `Disabler`, `Focus`, `Hover`, `RovingFocusItem`.
+
+**Terse wrappers** (`TerseButton`, `TerseDisabler`, `TerseRovingFocus`, `TerseFocus`, `TerseHover`, …) — consumer-facing directives that forward atom inputs with a `terse*` alias. Each is a thin DI alias layer:
+
+```typescript
+@Directive({
+  selector: '[terseButton]',
+  exportAs: 'terseButton',
+  hostDirectives: [
+    Button,
+    {directive: Disabler, inputs: ['disabled', 'disablerOptions:terseDisablerOptions']},
+    {directive: TabIndex, inputs: ['tabIndex']},
+    {directive: RoleAttribute, inputs: ['role']},
+    {directive: TypeAttribute, inputs: ['type']},
+  ],
+})
+export class TerseButton {
+  constructor() {
+    return inject(Button);
+  }
+}
+```
+
+**Rule: compose on primitives (`Button`), consume `TerseButton`.** Angular inputs can only be aliased once, so composing on a Terse wrapper collapses the whole point of the split.
 
 ### Host Directives (Composition Pattern)
 
-`hostDirectives` are the primary composition mechanism. Angular **natively de-duplicates** host directives — if the same directive appears at multiple levels in a composition chain, only one instance is created. This means you can freely compose directives without worrying about duplicates.
+`hostDirectives` are the primary composition mechanism. Angular **natively de-duplicates** host directives — if the same directive appears at multiple levels in a composition chain, only one instance is created. Compose freely without worrying about duplicates.
 
-**Prefer `hostDirectives`.** Prefer composition over inheritance. Each directive should do one thing and be composable via `hostDirectives`. Host directives can inject their host, their sibling host directives, and provide DI tokens. The host's bindings take precedence over host directive bindings.
+**Prefer `hostDirectives` over inheritance.** Each directive does one thing. Host directives can inject their host, their sibling host directives, and provide DI tokens. The host's bindings take precedence over host directive bindings.
 
-### Sources (`packages/ui/sources/`)
+### Pipeline Ordering
 
-Reactive value containers used by atoms and primitives:
+Both `pipelineSignal` and `EventPipeline` run handlers in **registration order — first piped runs first**. Since Angular constructs hostDirectives innermost-first, atoms register before outer composing directives.
 
-- **`Source<T>`** — Writable signal wrapper with `set()`, `update()`, `control()`. Used by atoms for mutable state.
-- **`Source<T>`** — Read-only signal wrapper (callable via Proxy). Used for computed-only values like `Anchor`.
-- **`ConcatState<T, M>`** — Composable pre/post source arrays with abstract `merge()`. Used by `Classes` to stack CSS classes across composition layers.
+The common pattern:
+
+- **Inner (atom/primitive) handlers** register via default `.pipe(...)` and run first. They do their work then call `next()` to delegate to outer composers.
+- **Outer composing directives that need to intercept _before_ inner** should use `.pipe(handler, {prepend: true})`. This is the canonical wrap pattern — e.g., a roving-focus item that must handle Arrow keys even when the inner button is disabled must prepend.
+
+### State Primitives (`packages/terse-ui/state/`)
+
+- **`State<S, R = S>`** — Base class with a writable inner signal and a derived public `state` deep-signal. Subclass for reactive containers (`Focus`, `Hover`).
+- **`pipelineSignal(source, opts?)`** — Function-based middleware pipeline backing a read-only signal. Handlers pipe in via `.pipe()` and can `next()`, `haltPipeline()`, or short-circuit. Use `pipelineSignal.deep()` when the public shape is an object. This replaced the old `StatePipeline` inheritance model.
+- Entity helpers (`addEntity`, `removeEntity`, `updateEntity`, …) for collection state.
 
 ### Options Pattern (`configBuilder`)
 
@@ -72,23 +104,25 @@ Hierarchical configuration via DI:
 const [provideMyOpts, injectMyOpts] = configBuilder<MyOpts>('Name', defaults, optionalMerger);
 ```
 
-Returns a `[provider, injector]` tuple. Providers can be placed at any component level for hierarchical override. Supports deep merging and function-based (lazy) option values. Used by `Button`, `Identifier`, `Anchored`, etc.
+Returns a `[provider, injector]` tuple. Providers can be placed at any component level for hierarchical override. Supports deep merging and function-based (lazy) option values.
 
-### Key Utilities (`packages/ui/internal/`)
+### Key Utilities (`packages/terse-ui/utils/`)
 
 - **`injectElement()`** — Type-safe host element injection.
-- **`HostAttributes`** — Reads static host attributes via `HostAttributeToken` with memoized caching. Also `@PerHost()`-enabled.
 - **`deepMerge()`** — Recursive object merge with prototype pollution protection.
-- **`unwrap()` / `unwrapInject()`** — Resolves `MaybeFn<T>` values (function or direct).
+- **`unwrap()` / `unwrapInject()`** — Resolves `MaybeFn<T>` values.
+- **`toDeepSignal()`** — Wraps a signal as a `DeepSignal` for nested reactive access.
+- Signal validators, id generators, timeout helpers.
 
 ## Conventions
 
-- **Selectors**: lowercase attribute selectors (`[button]`, `[menuItem]`, `[menuTrigger]`)
-- **Export as**: matches attribute name (`exportAs: 'button'`)
-- **Imports**: enforce `type` keyword for type-only imports/exports (`consistent-type-imports`, `consistent-type-exports`)
-- **Signals over observables**: use Angular signals, `linkedSignal()`, `computed()`, `effect()` — not RxJS for component state
-- **Standalone only**: all directives/components are standalone
-- **Testing**: use `@testing-library/angular` `render()` + `screen` queries + `userEvent` for interactions
+- **Selectors**: lowercase attribute selectors for primitives (`[button]`, `[disabler]`); `terse`-prefixed camelCase for consumer wrappers (`[terseButton]`, `[terseRovingFocus]`).
+- **Export as**: matches the attribute name (`exportAs: 'button'`, `exportAs: 'terseButton'`).
+- **Terse wrapper forwarding**: prefix shared input aliases with `terse` when they would collide with natural HTML attributes (`disablerOptions:terseDisablerOptions`); leave unprefixed when the input name is unambiguous (`tabIndex`, `role`).
+- **Imports**: enforce `type` keyword for type-only imports/exports (`consistent-type-imports`, `consistent-type-exports`).
+- **Signals over observables**: use Angular signals, `linkedSignal()`, `computed()`, `effect()` — not RxJS for component state.
+- **Standalone only**: all directives/components are standalone.
+- **Testing**: `@testing-library/angular` `render()` + `screen` queries + `userEvent`.
 
 ## TypeScript Best Practices
 

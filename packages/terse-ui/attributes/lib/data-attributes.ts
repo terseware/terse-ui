@@ -8,26 +8,14 @@ export abstract class DataAttribute {
   });
 }
 
-@Directive({
-  exportAs: 'dataDisabled',
-  host: {'[attr.data-disabled]': 'value()'},
-})
+@Directive({host: {'[attr.data-disabled]': 'value()'}})
 export class DataDisabled extends DataAttribute {}
 
-@Directive({
-  exportAs: 'dataFocus',
-  host: {'[attr.data-focus]': 'value()'},
-})
+@Directive({host: {'[attr.data-focus]': 'value()'}})
 export class DataFocus extends DataAttribute {}
 
-@Directive({
-  exportAs: 'dataFocusVisible',
-  host: {'[attr.data-focus-visible]': 'value()'},
-})
+@Directive({host: {'[attr.data-focus-visible]': 'value()'}})
 export class DataFocusVisible extends DataAttribute {}
 
-@Directive({
-  exportAs: 'dataHover',
-  host: {'[attr.data-hover]': 'value()'},
-})
+@Directive({host: {'[attr.data-hover]': 'value()'}})
 export class DataHover extends DataAttribute {}

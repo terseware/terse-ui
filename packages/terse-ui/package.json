@@ -4,7 +4,9 @@
   "peerDependencies": {
     "@angular/core": "22.0.0-next.7",
     "@signality/core": "^0.2.0",
-    "axe-core": "^4.11.2"
+    "axe-core": "^4.11.2",
+    "@terseware/ui": "0.0.1",
+    "@ngrx/signals": "^21.1.0"
   },
   "sideEffects": false
 }

@@ -10,22 +10,21 @@ import {
 } from '@terse-ui/core/utils';
 
 /**
- * Base button behavior: disabled states, keyboard activation, and ARIA attributes.
+ * Button behavior: keyboard activation and role/type auto-assignment.
  *
  * Not used directly in templates — compose via `hostDirectives` to build
  * higher-level primitives (menu items, toolbar buttons, toggles).
  *
+ * Disabled-state handling lives in {@link Disabler}; Button only consults
+ * Disabler to skip activation when disabled. Composition via `terseButton`
+ * pulls in both directives.
+ *
  * Handles:
- * - Tri-state disabled (`true` | `'soft'` | `false`) with correct `disabled`,
- *   `aria-disabled`, `data-disabled`, and `tabindex` semantics
  * - Keyboard activation: Enter on keydown, Space on keyup (non-native elements)
  * - Native `<button>` detection — defers to browser for Enter/Space handling
- * - Capture-phase event suppression when disabled (blocks template bindings)
- * - Pipeline-level event suppression via OnClick/OnMouseDown/OnPointerDown (composable)
  * - Role/type auto-assignment for non-native elements
  */
 @Directive({
-  exportAs: 'button',
   hostDirectives: [Disabler, RoleAttribute, TypeAttribute, OnKeyDown, OnKeyUp],
 })
 export class Button {
@@ -37,8 +36,10 @@ export class Button {
   readonly softDisabled = this.#disabler.soft;
   readonly hardDisabled = this.#disabler.hard;
 
-  readonly role = inject(RoleAttribute).value;
-  readonly type = inject(TypeAttribute).value;
+  readonly #role = inject(RoleAttribute).value;
+  readonly #type = inject(TypeAttribute).value;
+  readonly role = this.#role.asReadonly();
+  readonly type = this.#type.asReadonly();
 
   readonly #onKeyDown = inject(OnKeyDown);
   readonly #onKeyUp = inject(OnKeyUp);
@@ -55,17 +56,12 @@ export class Button {
   }
 
   constructor() {
-    this.role.pipe(({next}) => next() ?? (this.#implicitRole ? null : 'button'));
-    this.type.pipe(({next}) => next() ?? (this.#isNativeButton ? 'button' : null));
+    this.#role.pipe(({next}) => next() ?? (this.#implicitRole ? null : 'button'));
+    this.#type.pipe(({next}) => next() ?? (this.#isNativeButton ? 'button' : null));
 
-    this.#onKeyDown.pipe(({event, stop, next, stopped}) => {
-      if (this.hardDisabled()) {
-        stop();
-        return;
-      }
-
+    this.#onKeyDown.pipe(({event, next, pipelineHalted, preventDefault}) => {
       next();
-      if (stopped() || this.softDisabled()) {
+      if (pipelineHalted() || this.softDisabled()) {
         return;
       }
 
@@ -79,7 +75,7 @@ export class Button {
 
       if (shouldClick) {
         if (!this.#isNativeButton && (isSpaceKey || isEnterKey)) {
-          event.preventDefault();
+          preventDefault();
         }
 
         if (!this.#isNativeButton && isEnterKey) {
@@ -88,14 +84,9 @@ export class Button {
       }
     });
 
-    this.#onKeyUp.pipe(({event, stop, stopped, next}) => {
-      if (this.hardDisabled()) {
-        stop();
-        return;
-      }
-
+    this.#onKeyUp.pipe(({event, pipelineHalted, next}) => {
       next();
-      if (stopped() || this.softDisabled()) {
+      if (pipelineHalted() || this.softDisabled()) {
         return;
       }
 

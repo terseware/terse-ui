@@ -81,7 +81,7 @@ function executeEventChain<E extends Event>(handlers: EventPipelineHandler<E>[],
       get defaultPrevented() {
         return defaultPrevented;
       },
-      get stopped() {
+      get pipelineHalted() {
         return stopped;
       },
       prevent() {

@@ -56,10 +56,10 @@ describe('EventPipeline', () => {
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       // Should not throw
-      keyDown(screen.getByRole('button'), 'Enter');
+      expect(() => keyDown(screen.getByRole('button'), 'Enter')).not.toThrow();
     });
 
-    it('last appended handler runs first (outermost)', async () => {
+    it('first piped handler runs first', async () => {
       const order: string[] = [];
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
@@ -67,11 +67,11 @@ describe('EventPipeline', () => {
         constructor() {
           const pipe = inject(TestOnKeyDown);
           pipe.pipe(({next}) => {
-            order.push('first-appended');
+            order.push('first-piped');
             next();
           });
           pipe.pipe(({next}) => {
-            order.push('second-appended');
+            order.push('second-piped');
             next();
           });
         }
@@ -79,10 +79,10 @@ describe('EventPipeline', () => {
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'a');
-      expect(order).toEqual(['second-appended', 'first-appended']);
+      expect(order).toEqual(['first-piped', 'second-piped']);
     });
 
-    it('prepended handler runs closest to source (innermost)', async () => {
+    it('prepended handler runs before earlier-piped handlers', async () => {
       const order: string[] = [];
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
@@ -90,38 +90,41 @@ describe('EventPipeline', () => {
         constructor() {
           const pipe = inject(TestOnKeyDown);
           pipe.pipe(({next}) => {
-            order.push('appended');
+            order.push('piped');
             next();
           });
-          pipe.prepend(({next}) => {
-            order.push('prepended');
-            next();
-          });
+          pipe.pipe(
+            ({next}) => {
+              order.push('prepended');
+              next();
+            },
+            {prepend: true},
+          );
         }
       }
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'a');
-      expect(order).toEqual(['appended', 'prepended']);
+      expect(order).toEqual(['prepended', 'piped']);
     });
   });
 
   describe('next()', () => {
     it('handler that does not call next() prevents downstream execution', async () => {
-      const innerRan = vi.fn();
+      const downstreamRan = vi.fn();
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(() => innerRan());
-          pipe.pipe(() => void 0); // does not call next
+          pipe.pipe(() => void 0); // first-piped, runs first, does not call next
+          pipe.pipe(() => downstreamRan());
         }
       }
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'Enter');
-      expect(innerRan).not.toHaveBeenCalled();
+      expect(downstreamRan).not.toHaveBeenCalled();
     });
 
     it('calling next() delegates to the next handler', async () => {
@@ -142,81 +145,78 @@ describe('EventPipeline', () => {
     });
   });
 
-  describe('stop()', () => {
+  describe('haltPipeline()', () => {
     it('halts remaining handlers', async () => {
-      const innerRan = vi.fn();
+      const downstreamRan = vi.fn();
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(() => innerRan());
-          pipe.pipe(({stop}) => stop());
+          pipe.pipe(({haltPipeline}) => haltPipeline()); // first-piped, halts before any next()
+          pipe.pipe(() => downstreamRan());
         }
       }
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'Enter');
-      expect(innerRan).not.toHaveBeenCalled();
+      expect(downstreamRan).not.toHaveBeenCalled();
     });
 
-    it('stop() after next() prevents remaining downstream', async () => {
+    it('haltPipeline() after next() prevents remaining handlers from running later', async () => {
       const order: string[] = [];
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(() => order.push('A'));
+          pipe.pipe(({next, haltPipeline}) => {
+            order.push('A');
+            next();
+            haltPipeline();
+          });
           pipe.pipe(({next}) => {
             order.push('B');
             next();
           });
-          pipe.pipe(({next, stop}) => {
-            order.push('C');
-            next(); // runs B
-            stop(); // prevents A from running on further next() calls
-          });
+          pipe.pipe(() => order.push('C'));
         }
       }
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'x');
-      // C runs first (outermost), calls next() which runs B, B calls next() but A doesn't run
-      // Wait — stop() is called after next() returns from B. B already called next() which ran A.
-      // Actually: C(idx 2) → next() → B(idx 1) → next() → A(idx 0) runs.
-      // Then control returns to B, then to C which calls stop().
-      // stop() after everything already ran has no effect on past execution.
-      expect(order).toEqual(['C', 'B', 'A']);
+      // A runs first, calls next() → B runs → next() → C runs.
+      // Control returns to A which calls haltPipeline(). Nothing else pending.
+      expect(order).toEqual(['A', 'B', 'C']);
     });
 
-    it('stopped() reflects downstream stop()', async () => {
-      let outerSawStop = false;
+    it('pipelineHalted() reflects downstream haltPipeline()', async () => {
+      let sawHalt = false;
 
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(({stop}) => stop());
-          pipe.pipe(({next, stopped}) => {
+          pipe.pipe(({next, pipelineHalted}) => {
             next();
-            outerSawStop = stopped();
+            sawHalt = pipelineHalted();
           });
+          pipe.pipe(({haltPipeline}) => haltPipeline());
         }
       }
 
       await render(`<button test>Click</button>`, {imports: [Host]});
       keyDown(screen.getByRole('button'), 'x');
-      expect(outerSawStop).toBe(true);
+      expect(sawHalt).toBe(true);
     });
   });
 
-  describe('prevent()', () => {
+  describe('preventDefault()', () => {
     it('calls event.preventDefault()', async () => {
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
-          inject(TestOnKeyDown).pipe(({prevent}) => prevent());
+          inject(TestOnKeyDown).pipe(({preventDefault}) => preventDefault());
         }
       }
 
@@ -225,16 +225,16 @@ describe('EventPipeline', () => {
       expect(event.defaultPrevented).toBe(true);
     });
 
-    it('idempotent — multiple prevent() calls are safe', async () => {
+    it('idempotent — multiple preventDefault() calls are safe', async () => {
       @Directive({selector: '[test]', hostDirectives: [TestOnKeyDown]})
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(({prevent}) => prevent());
-          pipe.pipe(({next, prevent}) => {
-            prevent();
+          pipe.pipe(({next, preventDefault}) => {
+            preventDefault();
             next();
           });
+          pipe.pipe(({preventDefault}) => preventDefault());
         }
       }
 
@@ -250,12 +250,12 @@ describe('EventPipeline', () => {
       class Host {
         constructor() {
           const pipe = inject(TestOnKeyDown);
-          pipe.pipe(({defaultPrevented}) => {
-            innerSawPrevented = defaultPrevented;
-          });
-          pipe.pipe(({next, prevent}) => {
-            prevent();
+          pipe.pipe(({next, preventDefault}) => {
+            preventDefault();
             next();
+          });
+          pipe.pipe(({defaultPrevented}) => {
+            innerSawPrevented = defaultPrevented();
           });
         }
       }
@@ -332,13 +332,13 @@ describe('EventPipeline', () => {
         readonly disabled = signal(false);
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
-          inject(TestOnKeyDown).pipe(({event, stop, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, haltPipeline, next, pipelineHalted}) => {
             if (this.disabled()) {
-              stop();
+              haltPipeline();
               return;
             }
             next();
-            if (stopped()) return;
+            if (pipelineHalted()) return;
             // Non-native button: Enter → click
             if (event.key === 'Enter') {
               this.el.click();
@@ -382,9 +382,9 @@ describe('EventPipeline', () => {
       class Btn {
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
-          inject(TestOnKeyDown).pipe(({event, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, next, pipelineHalted}) => {
             next();
-            if (stopped()) return;
+            if (pipelineHalted()) return;
             buttonKeydownSpy(event.key);
             // Normal button: Space on keydown just prevents scroll
             if (event.key === ' ') {
@@ -405,11 +405,11 @@ describe('EventPipeline', () => {
         el = inject(ElementRef).nativeElement as HTMLElement;
         constructor() {
           // MenuItem intercepts Space on keydown → immediate activation
-          inject(TestOnKeyDown).pipe(({event, next, stop}) => {
+          inject(TestOnKeyDown).pipe(({event, next, haltPipeline}) => {
             if (event.key === ' ') {
               event.preventDefault();
               menuItemActivated();
-              stop();
+              haltPipeline();
               return;
             }
             next();
@@ -443,16 +443,16 @@ describe('EventPipeline', () => {
     });
   });
 
-  describe('composition: nested 3-level (toolbar → menu trigger → button)', () => {
+  describe('composition: nested 3-level (button → menu trigger → toolbar)', () => {
     it('each layer can intercept or delegate keydown events', async () => {
       const order: string[] = [];
 
       @Directive({selector: '[btn]', hostDirectives: [TestOnKeyDown]})
       class Btn {
         constructor() {
-          inject(TestOnKeyDown).pipe(({event, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, next, pipelineHalted}) => {
             next();
-            if (stopped()) return;
+            if (pipelineHalted()) return;
             order.push(`btn:${event.key}`);
           });
         }
@@ -461,11 +461,11 @@ describe('EventPipeline', () => {
       @Directive({selector: '[trigger]', hostDirectives: [Btn]})
       class Trigger {
         constructor() {
-          inject(TestOnKeyDown).pipe(({event, next, stop}) => {
-            // ArrowDown opens the menu — intercept and stop
+          inject(TestOnKeyDown).pipe(({event, next, haltPipeline}) => {
+            // ArrowDown opens the menu — intercept and halt before delegating
             if (event.key === 'ArrowDown') {
               order.push('trigger:open-menu');
-              stop();
+              haltPipeline();
               return;
             }
             next();
@@ -486,14 +486,17 @@ describe('EventPipeline', () => {
       await render(`<button toolbar>Menu</button>`, {imports: [Toolbar]});
       const button = screen.getByRole('button');
 
-      // Enter flows through all layers
+      // Construction order: TestOnKeyDown → Btn → Trigger → Toolbar
+      // So handlers run: Btn → Trigger → Toolbar (first-piped first).
+      // Btn's push happens after next() returns.
       keyDown(button, 'Enter');
       expect(order).toEqual(['toolbar:Enter', 'btn:Enter']);
 
-      // ArrowDown intercepted by Trigger — button handler never runs
+      // ArrowDown intercepted by Trigger — Toolbar (outermost, last piped)
+      // never runs; Btn sees pipelineHalted() and bails out.
       order.length = 0;
       keyDown(button, 'ArrowDown');
-      expect(order).toEqual(['toolbar:ArrowDown', 'trigger:open-menu']);
+      expect(order).toEqual(['trigger:open-menu']);
     });
   });
 
@@ -537,20 +540,20 @@ describe('EventPipeline', () => {
       expect(order).toEqual(['A', 'B', 'Diamond']);
     });
 
-    it('stop() in one branch halts the other', async () => {
-      const branchARan = vi.fn();
+    it('haltPipeline() in an earlier branch prevents the later branch from running', async () => {
+      const branchBRan = vi.fn();
 
       @Directive({selector: '[branchA]', hostDirectives: [TestOnKeyDown]})
       class BranchA {
         constructor() {
-          inject(TestOnKeyDown).pipe(() => branchARan());
+          inject(TestOnKeyDown).pipe(({haltPipeline}) => haltPipeline());
         }
       }
 
       @Directive({selector: '[branchB]', hostDirectives: [TestOnKeyDown]})
       class BranchB {
         constructor() {
-          inject(TestOnKeyDown).pipe(({stop}) => stop());
+          inject(TestOnKeyDown).pipe(() => branchBRan());
         }
       }
 
@@ -559,7 +562,8 @@ describe('EventPipeline', () => {
 
       await render(`<button diamond>Click</button>`, {imports: [Diamond]});
       keyDown(screen.getByRole('button'), 'x');
-      expect(branchARan).not.toHaveBeenCalled();
+      // A is piped first, so it runs first and halts. B never runs.
+      expect(branchBRan).not.toHaveBeenCalled();
     });
   });
 
@@ -574,25 +578,25 @@ describe('EventPipeline', () => {
       class Btn {
         readonly disabled = signal<boolean | 'soft'>(false);
         constructor() {
-          inject(TestOnKeyDown).pipe(({event, stop, next, stopped}) => {
+          inject(TestOnKeyDown).pipe(({event, haltPipeline, next, pipelineHalted}) => {
             const isSoftDisabled = this.disabled() === 'soft';
             const isHardDisabled = this.disabled() === true;
 
             // Soft disabled: prevent activation keys but allow Tab
             if (isSoftDisabled && (event.key === 'Enter' || event.key === ' ')) {
               event.preventDefault();
-              stop();
+              haltPipeline();
               return;
             }
 
             // Hard disabled: block everything
             if (isHardDisabled) {
-              stop();
+              haltPipeline();
               return;
             }
 
             next();
-            if (stopped()) return;
+            if (pipelineHalted()) return;
 
             if (event.key === 'Enter' || event.key === ' ') {
               activationSpy(event.key);
