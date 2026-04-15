@@ -1,10 +1,9 @@
 import {Directive} from '@angular/core';
-import {pipelineSignal} from '@terse-ui/core/state';
-import {isBoolean} from '@terse-ui/core/utils';
+import {isBoolean, statePipeline} from '@terse-ui/core/utils';
 
 export abstract class DataAttribute {
-  readonly value = pipelineSignal<string | number | boolean | null>(false, {
-    normalize: (v) => (isBoolean(v) ? (v ? '' : null) : (v?.toString() ?? null)),
+  readonly value = statePipeline<string | number | boolean | null>(false, {
+    finalize: (v) => (isBoolean(v) ? (v ? '' : null) : (v?.toString() ?? null)),
   });
 }
 
@@ -34,3 +33,9 @@ export class DataOffset extends DataAttribute {}
 
 @Directive({host: {'[attr.data-inset]': 'value()'}})
 export class DataInset extends DataAttribute {}
+
+@Directive({host: {'[attr.data-opened]': 'value()'}})
+export class DataOpened extends DataAttribute {}
+
+@Directive({host: {'[attr.data-closed]': 'value()'}})
+export class DataClosed extends DataAttribute {}

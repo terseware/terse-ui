@@ -1,41 +1,17 @@
 import {afterNextRender, contentChildren, DestroyRef, Directive, inject} from '@angular/core';
 import {onClickOutside} from '@signality/core';
-import {Anchored, provideAnchoredOpts} from '@terseware/ui/anchor';
-import {Identifier, Keys, Role} from '@terseware/ui/atoms';
-import {Hovered} from '@terseware/ui/interactions';
-import {injectElement, Timeout} from '@terseware/ui/internal';
-import {RovingFocus} from '@terseware/ui/roving-focus';
+import {Anchored, provideAnchoredOpts} from '@terse-ui/core/anchor';
+import {IdAttribute, RoleAttribute} from '@terse-ui/core/attributes';
+import {OnFocusOut, OnKeyDown} from '@terse-ui/core/events';
+import {Hover} from '@terse-ui/core/interactions';
+import {RovingFocus} from '@terse-ui/core/roving-focus';
+import {injectElement, Timeout} from '@terse-ui/core/utils';
 import {MenuItem} from './menu-item';
 import {MenuTrigger} from './menu-trigger';
 
-/**
- * Menu popup. Hosts a roving-focus group of `MenuItem`s, anchors to its
- * owning `MenuTrigger`, closes on Escape / Tab / outside click / focus
- * leaving the subtree, and supports single-character type-ahead.
- *
- * Placement is exposed via re-aliased `Anchored` inputs — consumers bind
- * directly on the menu element:
- *
- * ```html
- * <div menu side="bottom center" margin="8px">…</div>
- * ```
- */
 @Directive({
-  hostDirectives: [
-    {
-      directive: Anchored,
-      inputs: ['anchoredSide:side', 'anchoredMargin:margin'],
-    },
-    RovingFocus,
-    Identifier,
-    Role,
-    Keys,
-    Hovered,
-  ],
+  hostDirectives: [Anchored, RovingFocus, IdAttribute, RoleAttribute, OnKeyDown, Hover, OnFocusOut],
   providers: [provideAnchoredOpts({side: 'bottom span-right'})],
-  host: {
-    '(focusout)': 'onFocusOut($event)',
-  },
 })
 export class Menu {
   /** Typeahead buffer reset window. */
@@ -43,9 +19,9 @@ export class Menu {
 
   readonly element = injectElement();
   readonly trigger = inject(MenuTrigger);
-  readonly id = inject(Identifier);
+  readonly id = inject(IdAttribute).value;
   readonly focusGroup = inject(RovingFocus);
-  readonly hovered = inject(Hovered);
+  readonly hovered = inject(Hover);
 
   readonly items = contentChildren(MenuItem, {descendants: true});
 
@@ -53,38 +29,63 @@ export class Menu {
   #typeaheadBuffer = '';
 
   constructor() {
-    inject(Role).override(() => 'menu');
+    inject(RoleAttribute).value.pipe(({current}) => current ?? 'menu');
 
     this.#wireKeys();
     this.#wireLifecycle();
   }
 
   #wireKeys(): void {
-    const keys = inject(Keys);
+    // Prepend so we run before RovingFocus' own OnKeyDown handler and can
+    // claim Escape/Tab/ArrowLeft/typeahead first.
+    inject(OnKeyDown).pipe(
+      ({event, next, preventDefault}) => {
+        const key = event.key;
 
-    keys.down('Escape', () => this.trigger.close('escape'));
-    keys.down('Tab', () => this.trigger.close('tab'));
+        if (key === 'Escape') {
+          preventDefault();
+          event.stopPropagation();
+          this.trigger.close('escape');
+          return;
+        }
 
-    // Submenu-only: ArrowLeft backs out one level, letting the user walk
-    // out of a nested menu without collapsing the whole chain.
-    keys.down('ArrowLeft', () => this.trigger.close('escape'), {
-      when: () => this.trigger.isSubmenu,
-    });
+        if (key === 'Tab') {
+          preventDefault();
+          event.stopPropagation();
+          this.trigger.close('tab');
+          return;
+        }
 
-    // Typeahead. Any single character (after-modifier match only, since
-    // `Modifier.None` is the default) starts / extends the search buffer.
-    // `stopPropagation: false` so the character still reaches the document
-    // in case an outer layer cares.
-    keys.down(/^.$/u, (event) => this.#typeahead(event.key), {stopPropagation: false});
+        if (key === 'ArrowLeft' && this.trigger.isSubmenu) {
+          preventDefault();
+          event.stopPropagation();
+          this.trigger.close('escape');
+          return;
+        }
+
+        // Typeahead: single-character keys with no modifiers.
+        if (
+          key.length === 1 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          /^.$/u.test(key)
+        ) {
+          preventDefault();
+          // Intentionally NO stopPropagation — let the char bubble.
+          this.#typeahead(key);
+          return;
+        }
+
+        next();
+      },
+      {prepend: true},
+    );
   }
 
   #wireLifecycle(): void {
-    // Register with the trigger so focus-return and aria-controls work.
-    // Unregister on destroy.
     inject(DestroyRef).onDestroy(this.trigger.setMenu(this));
 
-    // Apply the trigger's requested initial focus once items are rendered,
-    // then reset the intent to `'first'` for the next open.
     afterNextRender(() => {
       if (this.trigger.openFocus() === 'last') {
         this.focusGroup.focusLast();
@@ -95,7 +96,23 @@ export class Menu {
     });
 
     onClickOutside(this.element, () => this.trigger.close('outside'), {
-      ignore: [this.trigger.element],
+      ignore: this.trigger.element ? [this.trigger.element] : [],
+    });
+
+    inject(OnFocusOut).pipe(({event, next}) => {
+      next();
+      if (this.trigger.isSelfOrParentOpen()) return;
+
+      const related = event.relatedTarget as Node | null;
+      if (!related) {
+        this.trigger.close('outside');
+        return;
+      }
+
+      const menuEl = event.currentTarget as HTMLElement;
+      if (!menuEl.contains(related) && !this.trigger.element?.contains(related)) {
+        this.trigger.close('outside');
+      }
     });
   }
 
@@ -110,22 +127,5 @@ export class Menu {
     this.#typeaheadTimer.set(Menu.TYPEAHEAD_RESET_MS, () => {
       this.#typeaheadBuffer = '';
     });
-  }
-
-  protected onFocusOut(event: FocusEvent): void {
-    // Don't close while the chain is still active — focus transitions
-    // between a menu and its submenu fire a focusout on the outer menu.
-    if (this.trigger.isSelfOrParentOpen()) return;
-
-    const related = event.relatedTarget as Node | null;
-    if (!related) {
-      this.trigger.close('outside');
-      return;
-    }
-
-    const menuEl = event.currentTarget as HTMLElement;
-    if (!menuEl.contains(related) && !this.trigger.element?.contains(related)) {
-      this.trigger.close('outside');
-    }
   }
 }

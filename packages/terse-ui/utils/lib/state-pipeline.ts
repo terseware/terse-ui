@@ -9,35 +9,36 @@ import {
 } from '@angular/core';
 import {deepComputed, type DeepSignal} from '@ngrx/signals';
 import {setupContext} from '@signality/core/internal';
-import {isUndefined} from '@terse-ui/core/utils';
+import {isUndefined} from './validators';
 
-export interface PipelineSignalContext<T> {
+export interface StateStatePipelineContext<T> {
   get current(): T;
   next(value?: T): T;
   pipelineHalted(): boolean;
   haltPipeline(): void;
 }
 
-export type PipelineSignalHandler<T> = (ctx: PipelineSignalContext<T>) => T;
+export type StatePipelineHandler<T> = (ctx: StateStatePipelineContext<T>) => T;
 
-export interface PipelineSignalOptions<T> extends CreateComputedOptions<T> {
-  normalize?: (value: T) => T;
+export interface StatePipelineOptions<T> extends CreateComputedOptions<T> {
+  readonly finalize?: (value: T) => T;
 }
 
 export interface PipelinePipeOptions {
-  injector?: Injector;
+  readonly injector?: Injector;
   /**
    * Insert at the front of the chain instead of the end.
    * ONLY USE AS A LAST RESORT.
    */
-  prepend?: boolean;
+  readonly prepend?: boolean;
 }
 
 interface Methods<T> {
-  pipe(handler: PipelineSignalHandler<T>, opts?: PipelinePipeOptions): () => void;
+  pipe(handler: StatePipelineHandler<T>, opts?: PipelinePipeOptions): () => void;
+  append(value: T): void;
 }
 
-export interface PipelineSignal<T> extends Signal<T>, Methods<T> {
+export interface StatePipeline<T> extends Signal<T>, Methods<T> {
   asReadonly(): Signal<T>;
 }
 export type PipelineDeepSignal<T extends object> = DeepSignal<T> &
@@ -45,24 +46,25 @@ export type PipelineDeepSignal<T extends object> = DeepSignal<T> &
     asReadonly(): DeepSignal<T>;
   };
 
-export interface PipelineSignalFunction {
-  <T>(source: T | Signal<T>, opts?: PipelineSignalOptions<T>): PipelineSignal<T>;
+export interface StatePipelineFunction {
+  <T>(source: T | Signal<T>, opts?: StatePipelineOptions<T>): StatePipeline<T>;
   deep<T extends object>(
     source: T | Signal<T>,
-    opts?: PipelineSignalOptions<T>,
+    opts?: StatePipelineOptions<T>,
   ): PipelineDeepSignal<T>;
 }
 
 function createPipeline<T>(
-  input: T | Signal<T>,
-  opts?: PipelineSignalOptions<T>,
-): Methods<T> & {result: Signal<T>} {
-  const handlers = signal<PipelineSignalHandler<T>[]>([]);
-  const normalize = opts?.normalize ?? ((value: T) => value);
-  const source = isSignal(input) ? input : signal(input);
-  const result = computed(() => normalize(executePipeline(handlers(), source())), opts);
+  source: T | Signal<T>,
+  opts?: StatePipelineOptions<T>,
+): {result: Signal<T>; pipe: Methods<T>['pipe']; append: Methods<T>['append']} {
+  const link = isSignal(source) ? source : signal(source);
+  const finalize = opts?.finalize ?? ((value: T) => value);
+  const handlers = signal<StatePipelineHandler<T>[]>([]);
+  const result = computed(() => finalize(executePipeline(handlers(), link())), opts);
   const pipe: Methods<T>['pipe'] = (handler, opts) => usePipeline(pipe, handler, handlers, opts);
-  return {result, pipe};
+  const append: Methods<T>['append'] = (value) => pipe(({next}) => next(value));
+  return {result, pipe, append};
 }
 
 /**
@@ -70,12 +72,12 @@ function createPipeline<T>(
  * to the next handler; `haltPipeline()` halts further delegation. Falls back to
  * state when no handlers remain.
  */
-function executePipeline<T>(handlers: PipelineSignalHandler<T>[], state: T): T {
+function executePipeline<T>(handlers: StatePipelineHandler<T>[], state: T): T {
   let halted = false;
 
   const execute = (index: number, current: T): T => {
     if (halted || index >= handlers.length) return current;
-    return (handlers[index] as PipelineSignalHandler<T>)({
+    return (handlers[index] as StatePipelineHandler<T>)({
       get current() {
         return current;
       },
@@ -92,8 +94,8 @@ function executePipeline<T>(handlers: PipelineSignalHandler<T>[], state: T): T {
 
 function usePipeline<T>(
   functionName: (...args: never[]) => unknown,
-  handler: PipelineSignalHandler<T>,
-  handlers: WritableSignal<PipelineSignalHandler<T>[]>,
+  handler: StatePipelineHandler<T>,
+  handlers: WritableSignal<StatePipelineHandler<T>[]>,
   opts?: PipelinePipeOptions,
 ): () => void {
   const {runInContext} = setupContext(opts?.injector, functionName);
@@ -105,20 +107,20 @@ function usePipeline<T>(
   });
 }
 
-export const pipelineSignal: PipelineSignalFunction = Object.assign(
-  function <T>(source: T | Signal<T>, opts?: PipelineSignalOptions<T>): PipelineSignal<T> {
-    const {result, pipe} = createPipeline(source, opts);
+export const statePipeline: StatePipelineFunction = Object.assign(
+  function <T>(source: T | Signal<T>, opts?: StatePipelineOptions<T>): StatePipeline<T> {
+    const {result, pipe, append} = createPipeline(source, opts);
     const readOnly = computed(() => result());
-    return Object.assign(result, {pipe, asReadonly: () => readOnly});
+    return Object.assign(result, {pipe, append, asReadonly: () => readOnly});
   },
   {
     deep<T extends object>(
       source: T | Signal<T>,
-      opts?: PipelineSignalOptions<T>,
+      opts?: StatePipelineOptions<T>,
     ): PipelineDeepSignal<T> {
-      const {result, pipe} = createPipeline(source, opts);
+      const {result, pipe, append} = createPipeline(source, opts);
       const readOnly = deepComputed(result);
-      return Object.assign(deepComputed(result), {pipe, asReadonly: () => readOnly});
+      return Object.assign(deepComputed(result), {pipe, append, asReadonly: () => readOnly});
     },
   },
 );

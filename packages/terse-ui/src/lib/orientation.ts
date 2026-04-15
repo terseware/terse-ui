@@ -1,33 +1,33 @@
-import {Directive, inject, input, isDevMode} from '@angular/core';
-import {statePipeline} from '@terse-ui/core/utils';
-import {RoleAttribute} from './role-attribute';
+import {Directive, input, isDevMode} from '@angular/core';
+import {injectElement, statePipeline} from '@terse-ui/core/utils';
 
-export type OrientationValue = 'vertical' | 'horizontal' | null;
+export type OrientationState = 'vertical' | 'horizontal' | null;
 
 @Directive({
-  hostDirectives: [RoleAttribute],
   host: {
-    '[attr.aria-orientation]': 'value()',
-    '[attr.data-orientation]': 'value()',
+    '[attr.aria-orientation]': 'state()',
+    '[attr.data-orientation]': 'state()',
   },
 })
 export class Orientation {
-  readonly #role = inject(RoleAttribute);
-  readonly _input = input<OrientationValue>(null, {alias: 'orientation'});
-  readonly value = statePipeline(this._input, {
-    finalize: (value) => {
-      const validOrientation = Orientation.VALUE_SET.has(value as never);
-      const validRole = Orientation.ALLOWED_ROLES_SET.has(this.#role.value() as never);
+  readonly #element = injectElement();
+  readonly _input = input<OrientationState>(null, {alias: 'orientation'});
+  readonly state = statePipeline(this._input, {
+    finalize: (state) => {
+      const role = this.#element.getAttribute('role');
+
+      const validOrientation = Orientation.VALUE_SET.has(state as never);
+      const validRole = Orientation.ALLOWED_ROLES_SET.has(role as never);
 
       if (validOrientation && !validRole && isDevMode()) {
         // eslint-disable-next-line no-console
         console.warn(
-          `Orientation ${value} is not allowed for role ${this.#role.value()}` +
-            ` Allowed roles: ${Orientation.ALLOWED_ROLES_STRING}`,
+          `Orientation: '${state}' is not allowed for role attribute: '${role}'\n` +
+            `Allowed roles: ${Orientation.ALLOWED_ROLES_STRING}`,
         );
       }
 
-      return validOrientation && validRole ? value : null;
+      return validOrientation && validRole ? state : null;
     },
   });
 

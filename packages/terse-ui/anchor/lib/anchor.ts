@@ -1,6 +1,6 @@
 import {Directive, inject} from '@angular/core';
 import {Styles} from '@terse-ui/core/styles';
-import {IdGenerator} from '@terseware/ui/internal';
+import {IdGenerator} from '@terse-ui/core/utils';
 
 /** CSS custom ident written to `anchor-name` (`--anchor-N`). */
 export type AnchorName = `--anchor-${number}`;

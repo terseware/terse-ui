@@ -1,9 +1,11 @@
 export * from './lib/config-builder';
 export * from './lib/deep-merge';
+export * from './lib/host-attr';
 export * from './lib/id-generator';
 export * from './lib/inject-element';
 export * from './lib/signal-validators';
+export * from './lib/state-pipeline';
 export * from './lib/timeout';
-export type * from './lib/typings';
+export * from './lib/typings';
 export * from './lib/unwrap';
 export * from './lib/validators';

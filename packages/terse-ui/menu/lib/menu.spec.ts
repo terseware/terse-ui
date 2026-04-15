@@ -4,28 +4,20 @@ import {fireEvent, render, screen, within} from '@testing-library/angular';
 import {userEvent} from '@testing-library/user-event';
 import {expectNoA11yViolations} from '../../test-axe';
 import {Menu} from './menu';
-import {MenuItem} from './menu-item';
-import {MenuTrigger} from './menu-trigger';
+import {TerseMenu} from './terse-menu';
+import {TerseMenuItem} from './terse-menu-item';
+import {TerseMenuTrigger} from './terse-menu-trigger';
 
-// ---------------------------------------------------------------------------
-// Test hosts
-// ---------------------------------------------------------------------------
-
-/**
- * Basic single-level menu with an accessible name. Every menu should have
- * one — the APG Menu pattern requires it — so the default test host models
- * the correct shape rather than the minimal one.
- */
 @Component({
   selector: 'test-basic-menu',
-  imports: [MenuTrigger, Menu, MenuItem],
+  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button menuTrigger [menuTriggerFor]="menuTpl">Open Menu</button>
+    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
-      <div aria-label="Actions" menu>
-        <button menuItem>Apple</button>
-        <button menuItem>Banana</button>
-        <button menuItem>Cherry</button>
+      <div aria-label="Actions" terseMenu>
+        <button terseMenuItem>Apple</button>
+        <button terseMenuItem>Banana</button>
+        <button terseMenuItem>Cherry</button>
       </div>
     </ng-template>
     <button>after</button>
@@ -33,19 +25,15 @@ import {MenuTrigger} from './menu-trigger';
 })
 class BasicMenuHost {}
 
-/**
- * Same shape but uses a dynamic item list so we can exercise roving-focus
- * updates when the item set changes while the menu is open.
- */
 @Component({
   selector: 'test-dynamic-menu',
-  imports: [MenuTrigger, Menu, MenuItem],
+  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button menuTrigger [menuTriggerFor]="menuTpl">Open Menu</button>
+    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
-      <div aria-label="Actions" menu>
+      <div aria-label="Actions" terseMenu>
         @for (label of labels(); track label) {
-          <button menuItem>{{ label }}</button>
+          <button terseMenuItem>{{ label }}</button>
         }
       </div>
     </ng-template>
@@ -55,56 +43,43 @@ class DynamicMenuHost {
   readonly labels = signal(['Alpha', 'Beta', 'Gamma']);
 }
 
-/**
- * Menu with a disabled item in the middle so we can pin that hard-disabled
- * items are skipped during navigation.
- */
 @Component({
   selector: 'test-disabled-item-menu',
-  imports: [MenuTrigger, Menu, MenuItem],
+  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button menuTrigger [menuTriggerFor]="menuTpl">Open Menu</button>
+    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
-      <div aria-label="Actions" menu>
-        <button menuItem>Apple</button>
-        <button disabled menuItem>Banana</button>
-        <button menuItem>Cherry</button>
+      <div aria-label="Actions" terseMenu>
+        <button terseMenuItem>Apple</button>
+        <button disabled terseMenuItem>Banana</button>
+        <button terseMenuItem>Cherry</button>
       </div>
     </ng-template>
   `,
 })
 class DisabledItemMenuHost {}
 
-/**
- * Nested submenu host. The inner trigger is a `menuItem menuTrigger` on the
- * same host, which is the idiomatic submenu composition. Parent + child
- * menus both carry an accessible name.
- */
 @Component({
   selector: 'test-submenu',
-  imports: [MenuTrigger, Menu, MenuItem],
+  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button menuTrigger [menuTriggerFor]="topTpl">Open Menu</button>
+    <button terseMenuTrigger [terseMenuTriggerFor]="topTpl">Open Menu</button>
     <ng-template #topTpl>
-      <div aria-label="Top" menu>
-        <button menuItem>Apple</button>
-        <button menuItem menuTrigger [menuTriggerFor]="subTpl">More</button>
-        <button menuItem>Cherry</button>
+      <div aria-label="Top" terseMenu>
+        <button terseMenuItem>Apple</button>
+        <button terseMenuItem terseMenuTrigger [terseMenuTriggerFor]="subTpl">More</button>
+        <button terseMenuItem>Cherry</button>
       </div>
     </ng-template>
     <ng-template #subTpl>
-      <div aria-label="More" menu>
-        <button menuItem>Sub One</button>
-        <button menuItem>Sub Two</button>
+      <div aria-label="More" terseMenu>
+        <button terseMenuItem>Sub One</button>
+        <button terseMenuItem>Sub Two</button>
       </div>
     </ng-template>
   `,
 })
 class SubmenuHost {}
-
-// ---------------------------------------------------------------------------
-// Helpers — every query is role-first.
-// ---------------------------------------------------------------------------
 
 function getTrigger(name = 'Open Menu'): HTMLElement {
   return screen.getByRole('button', {name});
@@ -126,32 +101,12 @@ function getItems(): HTMLElement[] {
   return screen.getAllByRole('menuitem');
 }
 
-/**
- * Open the menu the way a user would. MenuTrigger reacts on `mousedown`, so
- * a bare `fireEvent.mouseDown` is the shortest path to the open state.
- *
- * We deliberately avoid `userEvent.click` here because user-event's click
- * sequence focuses the clicked element as part of emitting the events, which
- * then races against the menu's own `afterNextRender` focus-first-item logic
- * and can leave focus stuck on the trigger. Using `fireEvent.mouseDown`
- * sidesteps that sequence and lets the menu's focus management win.
- *
- * `whenStable` flushes pending effects and `afterNextRender` callbacks so
- * the menu's "focus the first item" runs before the caller's next
- * assertion. Tests that want to inspect the menu as it appears can rely on
- * this single awaitable helper without having to sprinkle manual flushes.
- */
 function openMenu(fixture: ComponentFixture<unknown>, triggerName = 'Open Menu'): void {
   fireEvent.mouseDown(getTrigger(triggerName));
   fixture.detectChanges();
 }
 
 describe('Menu', () => {
-  // -------------------------------------------------------------------------
-  // ARIA shape — trigger + menu + items carry the right roles, states,
-  // and relationships per the WAI-ARIA Menu Button / Menu pattern.
-  // -------------------------------------------------------------------------
-
   describe('aria shape', () => {
     it('trigger exposes role=button and aria-haspopup="menu"', async () => {
       await render(BasicMenuHost);
@@ -216,11 +171,6 @@ describe('Menu', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Open / close — all dismissal routes named in APG plus the library's
-  // specific pointer semantics (drag-open on mousedown).
-  // -------------------------------------------------------------------------
-
   describe('open and close', () => {
     it('opens on a real pointer click of the trigger', async () => {
       const {fixture} = await render(BasicMenuHost);
@@ -264,12 +214,6 @@ describe('Menu', () => {
     });
 
     it('Tab inside an open menu closes it and preventDefaults the key', async () => {
-      // NOTE: We dispatch a raw `Tab` keydown here rather than
-      // `userEvent.keyboard('{Tab}')`, because user-event treats `{Tab}` as
-      // "advance focus" (via jsdom's Tab implementation) instead of
-      // emitting a plain keydown. The Menu's `Keys.down('Tab', …)` binding
-      // fires on the keydown, so we have to route the event through
-      // `dispatchEvent` to exercise it.
       const {fixture} = await render(BasicMenuHost);
       openMenu(fixture);
       const menu = getMenu();
@@ -287,8 +231,6 @@ describe('Menu', () => {
     });
 
     it('Escape on a closed, focused trigger does not preventDefault (stays unbound)', async () => {
-      // The trigger only claims Escape while its menu is open; a closed
-      // trigger must let Escape bubble (e.g. to dismiss an outer modal).
       await render(BasicMenuHost);
       const trigger = getTrigger();
       trigger.focus();
@@ -326,10 +268,6 @@ describe('Menu', () => {
       expect(queryMenu()).toBeInTheDocument();
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Keyboard navigation inside the open menu.
-  // -------------------------------------------------------------------------
 
   describe('keyboard navigation', () => {
     it('ArrowDown on a closed trigger opens the menu and focuses the first item', async () => {
@@ -407,14 +345,9 @@ describe('Menu', () => {
       expect(getItem('Apple')).toHaveFocus();
 
       await userEvent.keyboard('{ArrowDown}');
-      // Banana is disabled → focus jumps to Cherry.
       expect(getItem('Cherry')).toHaveFocus();
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Focus management — open focuses first, close returns to trigger.
-  // -------------------------------------------------------------------------
 
   describe('focus management', () => {
     it('focuses the first item when the menu opens via pointer', async () => {
@@ -446,8 +379,6 @@ describe('Menu', () => {
       getTrigger().focus();
       openMenu(fixture);
 
-      // Use a raw Tab event so the menu's Tab binding fires without
-      // letting jsdom try to advance focus through the DOM.
       const ev = new KeyboardEvent('keydown', {
         key: 'Tab',
         bubbles: true,
@@ -457,11 +388,6 @@ describe('Menu', () => {
       expect(getTrigger()).toHaveFocus();
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Item activation — keyboard Enter / Space dispatch the same click
-  // handler as a pointer activation.
-  // -------------------------------------------------------------------------
 
   describe('item activation', () => {
     it('Enter on a focused item dispatches click and closes the menu', async () => {
@@ -507,10 +433,6 @@ describe('Menu', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Typeahead — per APG: type a character, jump to the first matching item.
-  // -------------------------------------------------------------------------
-
   describe('typeahead', () => {
     it('jumps to the first item whose text starts with the typed char', async () => {
       const {fixture} = await render(BasicMenuHost);
@@ -534,8 +456,6 @@ describe('Menu', () => {
         const {fixture} = await render(BasicMenuHost);
         openMenu(fixture);
 
-        // userEvent defers to jsdom's timers — manually dispatch raw keys
-        // so that we can intersperse vi.advanceTimersByTime.
         const menu = getMenu();
         menu.dispatchEvent(
           new KeyboardEvent('keydown', {key: 'b', bubbles: true, cancelable: true}),
@@ -568,8 +488,6 @@ describe('Menu', () => {
       const apple = getItem('Apple');
       apple.focus();
 
-      // Dispatch a Ctrl+B keydown directly — userEvent would also emit
-      // keydown but the modifier combo reads cleaner as raw events.
       getMenu().dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'b',
@@ -592,10 +510,6 @@ describe('Menu', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // data-highlighted — the "about to activate" CSS hook.
-  // -------------------------------------------------------------------------
-
   describe('data-highlighted', () => {
     it('is set on the focused item and follows arrow-key navigation', async () => {
       const {fixture} = await render(BasicMenuHost);
@@ -608,11 +522,6 @@ describe('Menu', () => {
       expect(getItem('Apple')).not.toHaveAttribute('data-highlighted');
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Dynamic items — roving-tabindex should keep working when the list
-  // changes while the menu is open.
-  // -------------------------------------------------------------------------
 
   describe('dynamic items', () => {
     it('focuses the first item after opening a dynamically-built menu', async () => {
@@ -628,19 +537,13 @@ describe('Menu', () => {
       await userEvent.keyboard('{ArrowDown}');
       expect(getItem('Beta')).toHaveFocus();
 
-      // Remove Beta while the menu is open.
       fixture.componentInstance.labels.set(['Alpha', 'Gamma']);
       fixture.detectChanges();
 
-      // Alpha is still reachable and becomes the tab stop.
       expect(getItem('Alpha')).toHaveAttribute('tabindex', '0');
       expect(getItem('Gamma')).toHaveAttribute('tabindex', '-1');
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Submenu — nested menu-trigger inside a parent menu.
-  // -------------------------------------------------------------------------
 
   describe('submenu', () => {
     it('ArrowRight on a focused submenu trigger opens the child menu', async () => {
@@ -670,7 +573,6 @@ describe('Menu', () => {
 
       await userEvent.keyboard('{ArrowLeft}');
       expect(screen.queryByRole('menu', {name: 'More'})).not.toBeInTheDocument();
-      // Parent menu is still open.
       expect(screen.getByRole('menu', {name: 'Top'})).toBeInTheDocument();
       expect(getItem('More')).toHaveFocus();
     });
@@ -684,7 +586,6 @@ describe('Menu', () => {
 
       await userEvent.keyboard('{Escape}');
       expect(screen.queryByRole('menu', {name: 'More'})).not.toBeInTheDocument();
-      // Parent remains open — APG: Escape closes only the current popup.
       expect(screen.getByRole('menu', {name: 'Top'})).toBeInTheDocument();
     });
 
@@ -697,7 +598,6 @@ describe('Menu', () => {
       getItem('Sub One').focus();
       await userEvent.keyboard('{Enter}');
 
-      // Both the child and the parent menus disappear.
       expect(screen.queryByRole('menu', {name: 'More'})).not.toBeInTheDocument();
       expect(screen.queryByRole('menu', {name: 'Top'})).not.toBeInTheDocument();
     });
@@ -709,12 +609,6 @@ describe('Menu', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Axe a11y — verifies every major state is free of ARIA violations.
-  // These catch label wiring, role nesting, and aria-controls correctness
-  // that the unit assertions can't easily spot in aggregate.
-  // -------------------------------------------------------------------------
-
   describe('axe a11y', () => {
     it('closed menu (trigger only) has no violations', async () => {
       const {container} = await render(BasicMenuHost);
@@ -724,8 +618,6 @@ describe('Menu', () => {
     it('open menu with focusable items has no violations', async () => {
       const {container, fixture} = await render(BasicMenuHost);
       openMenu(fixture);
-      // Sanity: the menu is queryable by its accessible name and contains
-      // three items before we hand it to axe.
       const menu = getMenu();
       expect(within(menu).getAllByRole('menuitem')).toHaveLength(3);
       await expect(expectNoA11yViolations(container)).resolves.not.toThrow();

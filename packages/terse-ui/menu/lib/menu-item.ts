@@ -1,105 +1,89 @@
 import {computed, Directive, inject, model} from '@angular/core';
-import {Keys, Role} from '@terseware/ui/atoms';
-import {Button, provideCompositeButton} from '@terseware/ui/button';
-import {Hovered} from '@terseware/ui/interactions';
-import {injectElement} from '@terseware/ui/internal';
-import {RovingFocusItem} from '@terseware/ui/roving-focus';
+import {DataHighlighted, RoleAttribute} from '@terse-ui/core/attributes';
+import {CompositeItem} from '@terse-ui/core/button';
+import {OnClick, OnMouseUp, OnPointerEnter} from '@terse-ui/core/events';
+import {Focus, Hover} from '@terse-ui/core/interactions';
+import {RovingFocusItem} from '@terse-ui/core/roving-focus';
+import {injectElement} from '@terse-ui/core/utils';
 import {Menu} from './menu';
 import {MenuTrigger} from './menu-trigger';
 
 /**
- * Activatable item inside a `Menu`. Participates in the parent's
- * roving-focus group, activates on click / Enter / Space, and closes the
- * containing menu on activation unless `closeOnClick` is `false` (the
- * opt-out used by checkbox/radio variants).
+ * A focusable, activatable item inside a {@link Menu}.
  *
- * Keyboard activation is provided entirely by the composed `Button`,
- * which registers Enter / Space handlers through the shared `Keys`
- * registry (for non-native hosts) and lets the browser handle natives.
- * Because `Button` dispatches through `Keys` like everything else in the
- * library, submenu triggers composed on the same host or consumer code
- * adding extra bindings cooperate without any special coordination —
- * all handlers share one dispatch loop.
+ * Composes:
+ * - {@link CompositeItem} — Space-on-keydown activation + text-nav role
+ *   handling + Disabler + Button.
+ * - {@link RovingFocusItem} — tabindex orchestration and Focus tracking.
+ * - {@link Hover} — pointer hover state for highlight reflection.
  *
- * Sets `data-highlighted` when hovered or focused so consumers can style
- * the "about to activate" state with one attribute.
+ * Responsibilities unique to MenuItem:
+ * - Set `role="menuitem"` (unless the host already carries one).
+ * - Reflect highlight state via `data-highlighted` (hover OR focused).
+ * - Close the trigger on click unless the item is itself a submenu trigger
+ *   or `closeOnClick` has been set to `false`.
+ * - Focus on pointer enter (mouse only — touch is ignored to avoid
+ *   fighting roving focus on touch scroll).
+ * - Replay a click on `mouseup` during the trigger's mouseup-replay window
+ *   so the drag-to-select pattern activates without requiring a full click.
  */
 @Directive({
-  selector: '[menuItem]:not([unterse-menuItem]):not([unterse])',
-  exportAs: 'menuItem',
-  providers: [provideCompositeButton()],
-  hostDirectives: [Button, RovingFocusItem, Hovered, Role],
-  host: {
-    '[attr.data-highlighted]': 'isHighlighted() ? "" : null',
-    '(click)': 'onClick()',
-    '(pointerenter)': 'onPointerEnter($event)',
-    '(mouseup)': 'onMouseUp()',
-  },
+  hostDirectives: [
+    CompositeItem,
+    RovingFocusItem,
+    Hover,
+    DataHighlighted,
+    OnClick,
+    OnPointerEnter,
+    OnMouseUp,
+  ],
 })
 export class MenuItem {
   readonly element = injectElement();
   readonly #rovingItem = inject(RovingFocusItem);
-  readonly #hovered = inject(Hovered);
+  readonly #hover = inject(Hover);
+  readonly #focus = inject(Focus);
 
-  /**
-   * Resolves via the containing `Menu` (not via `self`) so submenu-trigger
-   * items see their parent menu's trigger rather than the submenu trigger
-   * that lives on the same host.
-   */
   readonly #parentMenu = inject(Menu);
   readonly trigger = this.#parentMenu.trigger;
 
-  /**
-   * Non-null when this item is itself a submenu trigger. Click handling
-   * is delegated to the trigger in that case, so we don't close the
-   * parent menu and flicker the just-opened child.
-   */
   readonly #selfTrigger = inject(MenuTrigger, {optional: true, self: true});
 
-  readonly isActive = this.#rovingItem.isActive;
-  readonly isHighlighted = computed(() => this.#hovered() || this.isActive());
+  readonly isActive = computed(() => this.#focus.focused() != null);
+  readonly isHighlighted = computed(() => this.#hover.hovered() || this.isActive());
 
-  /**
-   * Two-way flag: set to `false` by checkbox/radio variants so toggling
-   * state doesn't also dismiss the menu.
-   */
   readonly closeOnClick = model(true);
 
   constructor() {
-    inject(Role).override(() => 'menuitem');
-    inject(Keys).up(' ', () => this.element.click());
-    inject(Keys).down('Enter', () => this.element.click());
+    inject(RoleAttribute).value.pipe(({current}) => current ?? 'menuitem');
+    inject(DataHighlighted).value.pipe(({next}) => next(this.isHighlighted()));
+
+    inject(OnClick).pipe(({next}) => {
+      next();
+      if (this.#selfTrigger) return;
+      if (!this.closeOnClick()) return;
+      this.trigger.close('click');
+    });
+
+    inject(OnPointerEnter).pipe(({event, next}) => {
+      next();
+      if (event.pointerType === 'touch') return;
+      this.focus();
+    });
+
+    inject(OnMouseUp).pipe(({next}) => {
+      next();
+      if (this.trigger.allowItemClickOnMouseUp()) {
+        this.element.click();
+      }
+    });
   }
 
   focus(): void {
-    this.#rovingItem.focus();
+    this.#rovingItem.focusItem();
   }
 
   blur(): void {
-    this.#rovingItem.blur();
-  }
-
-  protected onClick(): void {
-    // Submenu-trigger items: the `MenuTrigger` hostDirective on the same
-    // host already toggled the child submenu in mousedown; closing the
-    // parent menu here would flicker the just-opened child.
-    if (this.#selfTrigger) return;
-    if (!this.closeOnClick()) return;
-    this.trigger.close('click');
-  }
-
-  protected onPointerEnter(event: PointerEvent): void {
-    // Touch-emulated pointerenter would pre-focus items before a tap,
-    // which is wrong for touch UX.
-    if (event.pointerType === 'touch') return;
-    this.focus();
-  }
-
-  protected onMouseUp(): void {
-    // Drag-select replay: during the ~200ms hold window, an item mouseup
-    // is promoted into a click (which `onClick` then handles).
-    if (this.trigger.allowItemClickOnMouseUp()) {
-      this.element.click();
-    }
+    this.#rovingItem.blurItem();
   }
 }

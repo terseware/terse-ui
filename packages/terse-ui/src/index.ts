@@ -1,1 +1,1 @@
-export * from './lib/terse-ui/terse-ui';
+export * from './lib';

@@ -2,8 +2,13 @@ import {computed, Directive, inject, input} from '@angular/core';
 import {listener} from '@signality/core';
 import {AriaDisabled, DataDisabled, DisabledAttribute, TabIndex} from '@terse-ui/core/attributes';
 import {OnClick, OnKeyDown, OnKeyUp, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
-import {pipelineSignal} from '@terse-ui/core/state';
-import {configBuilder, hasDisabledAttribute, injectElement, isBoolean} from '@terse-ui/core/utils';
+import {
+  configBuilder,
+  hasDisabledAttribute,
+  injectElement,
+  isBoolean,
+  statePipeline,
+} from '@terse-ui/core/utils';
 
 /**
  * Controls which capture-phase events are suppressed when the button is disabled.
@@ -103,7 +108,7 @@ export class Disabler {
     },
   });
 
-  readonly disabled = pipelineSignal(this._disabledInput);
+  readonly disabled = statePipeline(this._disabledInput);
 
   readonly variant = computed(() =>
     this.disabled() === 'soft' ? 'soft' : this.disabled() === true ? 'hard' : null,
@@ -132,7 +137,7 @@ export class Disabler {
     transform: (v) => ({...this.#options, ...v}),
   });
 
-  readonly options = pipelineSignal.deep(this._optionsInput);
+  readonly options = statePipeline.deep(this._optionsInput);
 
   constructor() {
     this.#tabIndex.pipe(({next}) => {

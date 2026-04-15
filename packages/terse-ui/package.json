@@ -6,7 +6,8 @@
     "@signality/core": "^0.2.0",
     "axe-core": "^4.11.2",
     "@terseware/ui": "0.0.1",
-    "@ngrx/signals": "^21.1.0"
+    "@ngrx/signals": "^21.1.0",
+    "ngxtension": "^7.2.0"
   },
   "sideEffects": false
 }

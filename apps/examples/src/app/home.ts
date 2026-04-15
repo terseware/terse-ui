@@ -1,33 +1,16 @@
-import {Component, Directive} from '@angular/core';
-import {TerseButton} from '@terse-ui/core/button';
-import {TerseRovingFocus, TerseRovingFocusItem} from '@terse-ui/core/roving-focus';
-
-@Directive({
-  selector: '[appMenuItem]',
-  hostDirectives: [TerseButton],
-})
-export class AppMenuItem {}
+import {Component} from '@angular/core';
+import {TerseHoverable, TersePressable} from '@terse-ui/core';
 
 @Component({
   selector: 'app-home',
-  imports: [TerseRovingFocus, TerseRovingFocusItem],
+  imports: [TersePressable, TerseHoverable],
   host: {
     'class': 'contents',
   },
   template: `
     <div class="flex flex-col gap-4 p-4">
       <div class="p-4">
-        <div
-          terseRovingFocus
-          role="toolbar"
-          aria-label="actions"
-          orientation="vertical"
-          class="flex flex-col gap-2"
-        >
-          <button terseRovingFocusItem>Enabled</button>
-          <button terseRovingFocusItem aria-label="Hard disabled">HD</button>
-          <button terseRovingFocusItem softDisabled aria-label="Soft disabled">SD</button>
-        </div>
+        <button tersePressable terseHoverable>Enabled</button>
       </div>
     </div>
   `,

@@ -139,3 +139,15 @@ export function hasRequiredAttribute<E extends Element>(
 export function isEventTarget(value: unknown): value is EventTarget {
   return typeof (value as EventTarget | null)?.addEventListener === 'function';
 }
+
+/**
+ * Roles where Space is consumed by typeahead (not activation) when the host
+ * has already called `preventDefault` on the keydown. Composite items in
+ * these roles should skip activation if the event is already defaultPrevented.
+ *
+ * Matches `menuitem`, `menuitemradio`, `menuitemcheckbox`, `option`, `gridcell`.
+ */
+export function isTextNavigationRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'option' || role === 'gridcell' || role.startsWith('menuitem');
+}

@@ -1,7 +1,7 @@
 import {Directive} from '@angular/core';
-import {pipelineSignal} from '@terse-ui/core/state';
+import {statePipeline} from '@terse-ui/core/utils';
 
 @Directive({host: {'[style]': 'value()'}})
 export class Styles {
-  readonly value = pipelineSignal<Record<string, string | number | boolean | null | undefined>>({});
+  readonly value = statePipeline<Record<string, string | number | boolean | null | undefined>>({});
 }

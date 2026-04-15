@@ -3,5 +3,6 @@
   "tailwindCSS.experimental.classRegex": [
     "(?:class|className|classes)\\s*[=:]\\s*['\"`]([^'\"`]*)['\"`]",
     "(?:cva|cn|cx|clsx|classes)\\s*\\([^)]*['\"`]([^'\"`]*)['\"`]"
-  ]
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib"
 }

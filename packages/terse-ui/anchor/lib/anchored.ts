@@ -3,6 +3,7 @@ import {
   computed,
   Directive,
   inject,
+  isDevMode,
   linkedSignal,
   model,
   signal,
@@ -10,7 +11,7 @@ import {
 import {setupContext} from '@signality/core/internal';
 import {DataAlign, DataOffset, DataSide} from '@terse-ui/core/attributes';
 import {Styles} from '@terse-ui/core/styles';
-import {configBuilder, injectElement, isString} from '@terseware/ui/internal';
+import {configBuilder, injectElement, isString} from '@terse-ui/core/utils';
 import {Anchor, type AnchorName} from './anchor';
 
 /** Placement of an anchored element relative to its anchor. */
@@ -83,8 +84,15 @@ export class Anchored {
 
   readonly positionAnchor = computed(() => {
     const anchored = this.anchored();
-    if (isString(anchored)) return anchored;
-    return this.#ctx.runInContext(() => inject(Anchor).value);
+    if (isString(anchored) && (anchored as string) !== '') return anchored;
+    if (anchored && !isString(anchored)) return anchored.value;
+    return this.#ctx.runInContext(() => {
+      const parent = inject(Anchor, {optional: true, skipSelf: true});
+      if (!parent && isDevMode()) {
+        console.warn('Anchored: No parent anchor found'); // eslint-disable-line no-console
+      }
+      return parent?.value ?? null;
+    });
   });
 
   readonly anchoredMargin = model<string | number>(this.#options.margin);
@@ -113,7 +121,7 @@ export class Anchored {
         ...current,
         'position-area': this.anchoredSide(),
         'position-anchor': this.positionAnchor(),
-        'position-try-fallbacks': this.anchoredPositionTryFallbacks().join(' '),
+        'position-try-fallbacks': this.anchoredPositionTryFallbacks().join(', '),
         'position': this.anchoredPosition(),
         [`margin-${FLIP_ALIGN[this.align()]}`]: this.anchoredMargin(),
       }),
