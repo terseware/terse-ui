@@ -22,6 +22,7 @@ export type StatePipelineHandler<T> = (ctx: StateStatePipelineContext<T>) => T;
 
 export interface StatePipelineOptions<T> extends CreateComputedOptions<T> {
   readonly finalize?: (value: T) => T;
+  readonly initHandler?: StatePipelineHandler<T>;
 }
 
 export interface PipelinePipeOptions {
@@ -42,9 +43,7 @@ export interface StatePipeline<T> extends Signal<T>, Methods<T> {
   asReadonly(): Signal<T>;
 }
 export type PipelineDeepSignal<T extends object> = DeepSignal<T> &
-  Methods<T> & {
-    asReadonly(): DeepSignal<T>;
-  };
+  Methods<T> & {asReadonly(): DeepSignal<T>};
 
 export interface StatePipelineFunction {
   <T>(source: T | Signal<T>, opts?: StatePipelineOptions<T>): StatePipeline<T>;
@@ -60,7 +59,7 @@ function createPipeline<T>(
 ): {result: Signal<T>; pipe: Methods<T>['pipe']; append: Methods<T>['append']} {
   const link = isSignal(source) ? source : signal(source);
   const finalize = opts?.finalize ?? ((value: T) => value);
-  const handlers = signal<StatePipelineHandler<T>[]>([]);
+  const handlers = signal<StatePipelineHandler<T>[]>(opts?.initHandler ? [opts.initHandler] : []);
   const result = computed(() => finalize(executePipeline(handlers(), link())), opts);
   const pipe: Methods<T>['pipe'] = (handler, opts) => usePipeline(pipe, handler, handlers, opts);
   const append: Methods<T>['append'] = (value) => pipe(({next}) => next(value));

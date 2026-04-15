@@ -1,16 +1,15 @@
 import {afterNextRender, contentChildren, DestroyRef, Directive, inject} from '@angular/core';
 import {onClickOutside} from '@signality/core';
+import {Hoverable, Identifier, Identity} from '@terse-ui/core';
 import {Anchored, provideAnchoredOpts} from '@terse-ui/core/anchor';
-import {IdAttribute, RoleAttribute} from '@terse-ui/core/attributes';
 import {OnFocusOut, OnKeyDown} from '@terse-ui/core/events';
-import {Hover} from '@terse-ui/core/interactions';
 import {RovingFocus} from '@terse-ui/core/roving-focus';
 import {injectElement, Timeout} from '@terse-ui/core/utils';
 import {MenuItem} from './menu-item';
 import {MenuTrigger} from './menu-trigger';
 
 @Directive({
-  hostDirectives: [Anchored, RovingFocus, IdAttribute, RoleAttribute, OnKeyDown, Hover, OnFocusOut],
+  hostDirectives: [Anchored, RovingFocus, Identity, Identifier, OnKeyDown, Hoverable, OnFocusOut],
   providers: [provideAnchoredOpts({side: 'bottom span-right'})],
 })
 export class Menu {
@@ -19,9 +18,10 @@ export class Menu {
 
   readonly element = injectElement();
   readonly trigger = inject(MenuTrigger);
-  readonly id = inject(IdAttribute).value;
+  readonly id = inject(Identifier).value;
+  readonly identity = inject(Identity);
   readonly focusGroup = inject(RovingFocus);
-  readonly hovered = inject(Hover);
+  readonly hovered = inject(Hoverable);
 
   readonly items = contentChildren(MenuItem, {descendants: true});
 
@@ -29,7 +29,7 @@ export class Menu {
   #typeaheadBuffer = '';
 
   constructor() {
-    inject(RoleAttribute).value.pipe(({current}) => current ?? 'menu');
+    this.identity.role.pipe(({next}) => next('menu'));
 
     this.#wireKeys();
     this.#wireLifecycle();

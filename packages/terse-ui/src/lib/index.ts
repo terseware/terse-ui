@@ -1,3 +1,4 @@
+export * from './controllable';
 export * from './focusable/focusable';
 export * from './focusable/input-modality';
 export * from './focusable/terse-focusable';
@@ -5,6 +6,7 @@ export * from './hoverable/global-pointer-events';
 export * from './hoverable/hoverable';
 export * from './hoverable/terse-hoverable';
 export * from './identifier';
+export * from './identity';
 export * from './open-close';
 export * from './orientation';
 export * from './pressable/pressable';

@@ -22,7 +22,7 @@ export interface TerseFocusable extends Focusable {}
   hostDirectives: [
     {
       directive: Focusable,
-      inputs: ['disabled', 'tabIndex'],
+      inputs: ['disabled', 'tabIndex', 'composite'],
       outputs: ['focusChange', 'focusVisibleChange'],
     },
   ],

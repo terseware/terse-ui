@@ -3,7 +3,7 @@ import {statePipeline} from '@terse-ui/core/utils';
 
 @Directive({host: {'[attr.role]': 'value()'}})
 export class RoleAttribute {
-  readonly #host = inject(new HostAttributeToken('role'), {optional: true});
-  readonly _input = input(this.#host, {alias: 'role'});
-  readonly value = statePipeline(this._input);
+  readonly #role = inject(new HostAttributeToken('role'), {optional: true});
+  readonly _inputRole = input(this.#role, {alias: 'role'});
+  readonly value = statePipeline(this._inputRole);
 }

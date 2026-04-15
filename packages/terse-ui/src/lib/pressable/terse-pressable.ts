@@ -14,7 +14,8 @@ export interface TersePressable extends Pressable {}
     TerseFocusable,
     {
       directive: Pressable,
-      outputs: ['pressChange'],
+      inputs: ['isPressed', 'shouldCancelOnPointerExit'],
+      outputs: ['pressChange', 'pressStart', 'pressEnd', 'press', 'pressUp'],
     },
   ],
 })

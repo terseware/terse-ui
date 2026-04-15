@@ -1,4 +1,5 @@
 import {
+  booleanAttribute,
   computed,
   Directive,
   inject,
@@ -47,7 +48,7 @@ function toDisabledVariant(v: boolean | 'soft' | null): 'hard' | 'soft' | null {
 @Directive({
   hostDirectives: [OnKeyDown],
   host: {
-    '[attr.disabled]': 'disabledAttr()',
+    '[attr.disabled]': "disabledAttr() ? '' : null",
     '[aria-disabled]': 'ariaDisabledAttr()',
     '[attr.data-disabled]': 'disabledVariant()',
     '[attr.tabindex]': 'tabIndex()',
@@ -58,6 +59,11 @@ function toDisabledVariant(v: boolean | 'soft' | null): 'hard' | 'soft' | null {
 export class Focusable {
   readonly #el = injectElement();
 
+  /* Composite */
+
+  readonly _inputComposite = input(false, {alias: 'composite', transform: booleanAttribute});
+  readonly composite = statePipeline(this._inputComposite);
+
   /* Disabled */
 
   readonly _inputDisabled = input(false, {alias: 'disabled', transform: transformDisabled});
@@ -67,15 +73,16 @@ export class Focusable {
   readonly hardDisabled = computed(() => this.disabledVariant() === 'hard');
 
   readonly #nativeDisable = hasDisabledAttribute(this.#el);
-  protected readonly disabledAttr = this.#nativeDisable
-    ? computed(() => (this.hardDisabled() ? '' : null))
-    : computed(() => null);
+  protected readonly disabledAttr = statePipeline(false, {
+    finalize: (v) => (this.#nativeDisable && this.hardDisabled() ? true : v),
+  });
 
-  protected readonly ariaDisabledAttr = computed(() =>
-    (this.#nativeDisable && this.softDisabled()) || (!this.#nativeDisable && this.disabled())
-      ? Boolean(this.disabled())
-      : null,
-  );
+  protected readonly ariaDisabledAttr = statePipeline<boolean | null>(null, {
+    finalize: (v) =>
+      (this.#nativeDisable && this.softDisabled()) || (!this.#nativeDisable && this.disabled())
+        ? Boolean(this.disabled())
+        : v,
+  });
 
   /* Tab Index */
 

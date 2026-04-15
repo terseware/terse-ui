@@ -1,16 +1,16 @@
 import {Component} from '@angular/core';
-import {TerseHoverable, TersePressable} from '@terse-ui/core';
+import {TerseButton} from '@terse-ui/core/button';
 
 @Component({
   selector: 'app-home',
-  imports: [TersePressable, TerseHoverable],
+  imports: [TerseButton],
   host: {
     'class': 'contents',
   },
   template: `
     <div class="flex flex-col gap-4 p-4">
       <div class="p-4">
-        <button tersePressable terseHoverable>Enabled</button>
+        <span terseButton composite (click)="console.log('click')"> Enabled </span>
       </div>
     </div>
   `,

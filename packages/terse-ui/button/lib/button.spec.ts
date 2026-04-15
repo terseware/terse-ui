@@ -19,7 +19,7 @@ describe('Button', () => {
       expect(el).not.toHaveAttribute('disabled');
       expect(el).toHaveAttribute('data-disabled', 'hard');
       expect(el).toHaveAttribute('aria-disabled', 'true');
-      expect(el).toHaveAttribute('tabindex', '-1');
+      expect(el).toHaveProperty('tabIndex', -1);
     });
 
     it('soft disabled: removes native disabled and adds aria-disabled', async () => {
@@ -28,7 +28,7 @@ describe('Button', () => {
       expect(button).not.toHaveAttribute('disabled');
       expect(button).toHaveAttribute('data-disabled', 'soft');
       expect(button).toHaveAttribute('aria-disabled', 'true');
-      expect(button).toHaveAttribute('tabindex', '0');
+      expect(button).toHaveProperty('tabIndex', 0);
     });
 
     it('soft disabled: non-native element gets aria-disabled and remains soft disabled', async () => {
@@ -39,7 +39,7 @@ describe('Button', () => {
       expect(el).not.toHaveAttribute('disabled');
       expect(el).toHaveAttribute('data-disabled', 'soft');
       expect(el).toHaveAttribute('aria-disabled', 'true');
-      expect(el).toHaveAttribute('tabindex', '0');
+      expect(el).toHaveProperty('tabIndex', 0);
     });
 
     it('not disabled: no disabled attributes', async () => {
@@ -48,7 +48,7 @@ describe('Button', () => {
       expect(button).not.toHaveAttribute('disabled');
       expect(button).not.toHaveAttribute('data-disabled');
       expect(button).not.toHaveAttribute('aria-disabled');
-      expect(button).toHaveAttribute('tabindex', '0');
+      expect(button).toHaveProperty('tabIndex', 0);
     });
   });
 
@@ -453,13 +453,13 @@ describe('Button', () => {
     it('should have tabindex="0" by default', async () => {
       await render(`<button terseButton>Click me</button>`, {imports: [TerseButton]});
 
-      expect(screen.getByRole('button')).toHaveAttribute('tabindex', '0');
+      expect(screen.getByRole('button')).toHaveProperty('tabIndex', 0);
     });
 
     it('should have tabindex="0" on non-native elements', async () => {
       await render(`<div terseButton>Custom</div>`, {imports: [TerseButton]});
 
-      expect(screen.getByRole('button')).toHaveAttribute('tabindex', '0');
+      expect(screen.getByRole('button')).toHaveProperty('tabIndex', 0);
     });
   });
 
@@ -620,7 +620,7 @@ describe('Button', () => {
 
       const link = container.debugElement.query(By.css('a')).nativeElement;
       expect(link).toHaveAttribute('data-disabled', 'soft');
-      expect(link).toHaveAttribute('tabindex', '0');
+      expect(link).toHaveProperty('tabIndex', 0);
     });
   });
 
@@ -859,19 +859,19 @@ describe('Button', () => {
       );
 
       const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('tabindex', '0');
+      expect(button).toHaveProperty('tabIndex', 0);
       expect(button).not.toHaveAttribute('disabled');
 
       await rerender({componentProperties: {disabled: 'soft'}});
       fixture.detectChanges();
-      expect(button).toHaveAttribute('tabindex', '0');
+      expect(button).toHaveProperty('tabIndex', 0);
       expect(button).not.toHaveAttribute('disabled');
       expect(button).toHaveAttribute('aria-disabled', 'true');
       expect(button).toHaveAttribute('data-disabled', 'soft');
 
       await rerender({componentProperties: {disabled: false}});
       fixture.detectChanges();
-      expect(button).toHaveAttribute('tabindex', '0');
+      expect(button).toHaveProperty('tabIndex', 0);
       expect(button).not.toHaveAttribute('disabled');
       expect(button).not.toHaveAttribute('aria-disabled');
       expect(button).not.toHaveAttribute('data-disabled');
@@ -914,7 +914,7 @@ describe('Button', () => {
         expect(button).not.toHaveAttribute('disabled');
         expect(button).toHaveAttribute('data-disabled');
         expect(button).toHaveAttribute('aria-disabled', 'true');
-        expect(button).toHaveAttribute('tabindex', '-1');
+        expect(button).toHaveProperty('tabIndex', -1);
 
         await userEvent.keyboard('[Tab]');
         expect(button).not.toHaveFocus();
@@ -938,7 +938,7 @@ describe('Button', () => {
         expect(button).not.toHaveAttribute('disabled');
         expect(button).toHaveAttribute('data-disabled');
         expect(button).toHaveAttribute('aria-disabled', 'true');
-        expect(button).toHaveAttribute('tabindex', '0');
+        expect(button).toHaveProperty('tabIndex', 0);
 
         await userEvent.keyboard('[Tab]');
         expect(button).toHaveFocus();
@@ -960,7 +960,7 @@ describe('Button', () => {
         expect(button).not.toHaveAttribute('disabled');
         expect(button).toHaveAttribute('data-disabled');
         expect(button).toHaveAttribute('aria-disabled', 'true');
-        expect(button).toHaveAttribute('tabindex', '0');
+        expect(button).toHaveProperty('tabIndex', 0);
 
         await userEvent.keyboard('[Tab]');
         expect(button).toHaveFocus();

@@ -1,5 +1,5 @@
 import {Directive, ElementRef, inject, signal} from '@angular/core';
-import {RoleAttribute} from '@terse-ui/core/attributes';
+import {Identity, TerseFocusable} from '@terse-ui/core';
 import {OnClick, OnKeyDown, OnKeyUp, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
 import {fireEvent, render, screen} from '@testing-library/angular';
 import {TerseButton} from './terse-button';
@@ -24,6 +24,7 @@ class TestCompositeItem {
   readonly #element = inject(ElementRef).nativeElement as HTMLElement;
 
   constructor() {
+    inject(TerseFocusable).composite.append(true);
     // Space fires on keydown (immediate activation). Prepend so the composite
     // wrapper sees defaultPrevented set by inner Button before delegating.
     inject(OnKeyDown).pipe(
@@ -70,7 +71,8 @@ class TestCompositeItem {
 })
 class TestMenuItem {
   constructor() {
-    inject(RoleAttribute).value.pipe(({next}) => next('menuitem'));
+    inject(TerseFocusable).composite.append(true);
+    inject(Identity).role.pipe(({next}) => next('menuitem'));
   }
 }
 
@@ -83,7 +85,7 @@ class TestMenuItem {
 })
 class TestMenuItemComposite {
   constructor() {
-    inject(RoleAttribute).value.pipe(({next}) => next('menuitem'));
+    inject(Identity).role.pipe(({next}) => next('menuitem'));
   }
 }
 
@@ -98,6 +100,7 @@ class TestMenuItemComposite {
 class TestRovingItem {
   readonly navigated = signal<string | null>(null);
   constructor() {
+    inject(TerseFocusable).composite.append(true);
     // Roving focus must intercept arrows even when the button is disabled
     // (so navigation works on disabled items). Prepend to run before Button.
     inject(OnKeyDown).pipe(
@@ -247,7 +250,7 @@ describe('Button composition', () => {
     })
     class TestGridCell {
       constructor() {
-        inject(RoleAttribute).value.pipe(({next}) => next('gridcell'));
+        inject(Identity).role.pipe(({next}) => next('gridcell'));
       }
     }
 
@@ -281,7 +284,7 @@ describe('Button composition', () => {
     })
     class TestSwitch {
       constructor() {
-        inject(RoleAttribute).value.pipe(({next}) => next('switch'));
+        inject(Identity).role.pipe(({next}) => next('switch'));
       }
     }
 
@@ -514,8 +517,7 @@ describe('Button composition', () => {
       // Disable capture-phase suppression so the click reaches the pipeline,
       // then toggle soft-disabled via rerender to observe pipelineHalted() flip.
       const {rerender, fixture} = await render(
-        `<button testMenuTrigger [disabled]="disabled"
-                 [terseDisablerOptions]="{captureClick: false}">Menu</button>`,
+        `<button testMenuTrigger [disabled]="disabled" [captureClick]="false">Menu</button>`,
         {
           imports: [TestMenuTrigger],
           componentProperties: {disabled: false as boolean | 'soft'},
@@ -535,17 +537,14 @@ describe('Button composition', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Non-composite button: Space fires on keyup (default behavior preserved)
-  // -----------------------------------------------------------------------
-
-  it('without composite wrapper, Space fires click on keyup for non-native buttons', async () => {
+  it('space fires keydown then click on composite buttons', async () => {
     const handleKeyDown = vi.fn();
     const handleKeyUp = vi.fn();
     const handleClick = vi.fn();
 
     await render(
       `<span terseButton
+        composite
         (keydown)="handleKeyDown()"
         (keyup)="handleKeyUp()"
         (click)="handleClick()"
@@ -561,10 +560,10 @@ describe('Button composition', () => {
 
     fireEvent.keyDown(button, {key: ' '});
     expect(handleKeyDown).toHaveBeenCalledTimes(1);
-    expect(handleClick).toHaveBeenCalledTimes(0); // not yet
+    expect(handleClick).toHaveBeenCalledTimes(1);
 
     fireEvent.keyUp(button, {key: ' '});
     expect(handleKeyUp).toHaveBeenCalledTimes(1);
-    expect(handleClick).toHaveBeenCalledTimes(1); // now
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 });
