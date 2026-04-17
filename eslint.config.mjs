@@ -76,7 +76,7 @@ export default [
 
       // Enforce modern Angular patterns
       '@angular-eslint/prefer-standalone': 'error',
-      '@angular-eslint/prefer-on-push-component-change-detection': 'error',
+      '@angular-eslint/prefer-on-push-component-change-detection': 'off', // Angular v22+ defaults to OnPush
       '@angular-eslint/no-host-metadata-property': 'off', // we use host bindings intentionally
       '@angular-eslint/prefer-output-readonly': 'error',
       '@angular-eslint/prefer-signals': 'error',
@@ -126,7 +126,6 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-function-type': 'off',
-      '@angular-eslint/prefer-on-push-component-change-detection': 'off',
     },
   },
   {

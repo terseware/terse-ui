@@ -1,8 +1,7 @@
 import {isSignal, signal, type CreateSignalOptions, type WritableSignal} from '@angular/core';
+import {isRecord, setupContext, type MaybeSignal, type WithInjector} from '@terse-ui/utils';
 import {listener, setupSync} from '@terse-ui/utils/events';
-import {delegatedSignal, toValue} from '@terse-ui/utils/signals';
-import {watcher} from '@terse-ui/utils/signals/src/watcher';
-import {isRecord, setupContext, type MaybeSignal, type WithInjector} from '@terse-ui/utils/src';
+import {delegatedSignal, toValue, watcher} from '@terse-ui/utils/signals';
 
 export interface StorageOptions<T> extends CreateSignalOptions<T>, WithInjector {
   /**

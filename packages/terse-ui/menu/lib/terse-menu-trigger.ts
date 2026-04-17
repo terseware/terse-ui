@@ -1,6 +1,6 @@
 import {Directive, inject} from '@angular/core';
+import {TerseControllable, TerseOpenClose} from '@terse-ui/core';
 import {TerseButton} from '@terse-ui/core/button';
-import {TerseControllable, TerseOpenClose} from '@terse-ui/core/src';
 import {MenuTrigger} from './menu-trigger';
 
 export interface TerseMenuTrigger extends MenuTrigger {}

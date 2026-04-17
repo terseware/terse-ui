@@ -1,5 +1,5 @@
 import {Directive, inject} from '@angular/core';
-import {TerseOrientation} from '@terse-ui/core/src';
+import {TerseOrientation} from '@terse-ui/core';
 import {RovingFocus} from './roving-focus';
 
 export interface TerseRovingFocusState extends RovingFocus {}

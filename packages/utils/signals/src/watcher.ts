@@ -6,7 +6,7 @@ import {
   type Signal,
   untracked,
 } from '@angular/core';
-import {type AnySignal, setupContext, type SignalValues} from '@terse-ui/utils/src';
+import {type AnySignal, setupContext, type SignalValues} from '@terse-ui/utils';
 
 export interface CreateWatcherOptions extends Omit<CreateEffectOptions, 'allowSignalWrites'> {
   /**

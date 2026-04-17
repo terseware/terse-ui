@@ -1,5 +1,5 @@
 import {DOCUMENT, inject, Injectable, type EffectCleanupRegisterFn} from '@angular/core';
-import {setupContext} from '@terse-ui/utils/src';
+import {setupContext} from '@terse-ui/utils';
 import {eventPipeline, type EventPipeline} from './event-pipeline';
 import {listener, setupSync} from './listener';
 

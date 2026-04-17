@@ -1,8 +1,8 @@
 import {computed, Directive, inject, model} from '@angular/core';
+import {Focusable, Hoverable, Identity} from '@terse-ui/core';
 import {Button} from '@terse-ui/core/button';
 import {OnClick, OnMouseUp, OnPointerEnter} from '@terse-ui/core/events';
 import {RovingFocusItem} from '@terse-ui/core/roving-focus';
-import {Focusable, Hoverable, Identity} from '@terse-ui/core/src';
 import {injectElement} from '@terse-ui/core/utils';
 import {Menu} from './menu';
 import {MenuTrigger} from './menu-trigger';

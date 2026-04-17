@@ -1,28 +1,15 @@
 import {Component} from '@angular/core';
-import {TerseMenu, TerseMenuItem, TerseMenuTrigger} from '@terse-ui/core/menu';
+import {Cn} from '@terse-ui/core';
 
 @Component({
   selector: 'app-home',
-  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
+  imports: [Cn],
   host: {
     'class': 'contents',
   },
   template: `
     <div>
-      <button [terseMenuTrigger]="topTpl">Open Menu</button>
-      <ng-template #topTpl>
-        <div aria-label="Top" class="flex flex-col gap-2" terseMenu>
-          <button terseMenuItem>Apple</button>
-          <button terseMenuItem [terseMenuTrigger]="subTpl">More</button>
-          <button terseMenuItem>Cherry</button>
-        </div>
-      </ng-template>
-      <ng-template #subTpl>
-        <div aria-label="More" class="flex flex-col gap-2" terseMenu>
-          <button terseMenuItem>Sub One</button>
-          <button terseMenuItem>Sub Two</button>
-        </div>
-      </ng-template>
+      <button class="de" cn="bg-red-500">s</button>
     </div>
   `,
 })

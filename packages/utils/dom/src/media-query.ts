@@ -1,7 +1,7 @@
 import {type CreateSignalOptions, effect, type Signal, signal} from '@angular/core';
+import {type MaybeSignal, setupContext, type Union, type WithInjector} from '@terse-ui/utils';
 import {listener} from '@terse-ui/utils/events';
 import {constSignal, toValue} from '@terse-ui/utils/signals';
-import {type MaybeSignal, setupContext, type Union, type WithInjector} from '@terse-ui/utils/src';
 
 export interface MediaQueryOptions extends CreateSignalOptions<boolean>, WithInjector {
   /**
