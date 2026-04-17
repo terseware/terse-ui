@@ -2,99 +2,79 @@ import {
   assertInInjectionContext,
   DestroyRef,
   inject,
+  type Injector,
   INJECTOR,
   isDevMode,
+  isSignal,
+  runInInjectionContext,
+  type Signal,
   untracked,
-  type Injector,
 } from '@angular/core';
+import {SIGNAL, type SignalNode} from '@angular/core/primitives/signals';
 import {IS_BROWSER, IS_MOBILE, IS_SERVER} from './platform';
 import type {Fn} from './types/primitive-types';
 
-/**
- * Context object passed to {@link withContext} / {@link setupContext} callbacks.
- *
- * @remarks
- * Platform flags are lazy getters — the underlying tokens are only injected
- * on first access. If your callback never reads `isMobile`, the DI lookup
- * never happens.
- *
- * `onCleanup` returns an unsubscribe function that cancels the cleanup
- * registration without running it. Useful when resources are disposed
- * manually and the destroy-time callback would double-dispose.
- */
 export interface ContextRef {
   readonly injector: Injector;
-  readonly isBrowser: boolean;
   readonly isServer: boolean;
+  readonly isBrowser: boolean;
   readonly isMobile: boolean;
-  readonly onCleanup: (cleanupFn: () => void) => () => void;
+  readonly onCleanup: (cleanupFn: () => void) => void;
 }
 
-/** Handle returned by {@link setupContext} for deferred / repeated execution. */
 export interface SetupContextRef {
-  readonly runInContext: <T>(fn: (context: ContextRef) => T) => T;
+  runInContext<T>(fn: (context: ContextRef) => T): T;
 }
 
-/**
- * One-shot context runner — the common case. Must be called in an injection
- * context unless an explicit `injector` is passed in.
- */
-export function withContext<T>(
-  injector: Injector | undefined,
-  fn: (context: ContextRef) => T,
-  debugFn?: Fn | undefined,
-): T {
+export function setupContext(injector?: Injector, debugFn?: Fn): SetupContextRef {
   if (isDevMode() && !injector) {
-    assertInInjectionContext(debugFn ?? withContext);
+    assertInInjectionContext(debugFn || setupContext);
   }
-  const resolvedInjector = injector ?? inject(INJECTOR);
-  return runWithContext(fn, resolvedInjector);
-}
 
-/**
- * Deferred / repeatable variant. Captures the injector now, runs callbacks
- * later. Use when the injection context won't be available at call time
- * (e.g. inside an async boundary or a stored callback).
- */
-export function setupContext(
-  injector?: Injector | undefined,
-  debugFn?: Fn | undefined,
-): SetupContextRef {
-  if (isDevMode() && !injector) {
-    assertInInjectionContext(debugFn ?? setupContext);
-  }
-  const captured = injector ?? inject(INJECTOR);
+  const ctxInjector = injector || inject(INJECTOR);
+
   return {
-    runInContext: (fn) => runWithContext(fn, captured),
+    runInContext<T>(fn: (context: ContextRef) => T): T {
+      return runInContextImpl(fn, ctxInjector, debugFn || setupContext);
+    },
   };
 }
 
-function runWithContext<T>(fn: (context: ContextRef) => T, injector: Injector): T {
-  // `untracked` guards against signal tracking leaking out of the callback
-  // when `runWithContext` is itself called from a reactive consumer (effect,
-  // computed). No-op in non-reactive contexts.
-  return untracked(() => fn(buildContextRef(injector)));
+function runInContextImpl<T>(fn: (context: ContextRef) => T, injector: Injector, debugFn: Fn): T {
+  const result = runInInjectionContext(injector, () => {
+    const isBrowser = inject(IS_BROWSER);
+    const isServer = inject(IS_SERVER);
+    const isMobile = inject(IS_MOBILE);
+    const destroyRef = inject(DestroyRef);
+    const onCleanup = (cleanupFn: () => void) => void destroyRef.onDestroy(cleanupFn);
+    return untracked(() => fn({injector, isBrowser, isServer, isMobile, onCleanup}));
+  });
+
+  if (isDevMode() && result != null) {
+    setupDebugInfo(result, debugFn);
+  }
+
+  return result;
 }
 
-function buildContextRef(injector: Injector): ContextRef {
-  // Platform-flag fields are lazy — inject only on first read. Callers that
-  // only need `injector` pay zero DI cost for the rest.
-  const destroyRef = injector.get(DestroyRef);
-  let isBrowser: boolean;
-  let isServer: boolean;
-  let isMobile: boolean;
+function setupDebugInfo<T>(value: T, debugFn: Fn): T {
+  if (isSignal(value)) {
+    setDebugName(value, debugFn);
+  } else if (value && typeof value === 'object') {
+    for (const [postfix, maybeSignal] of Object.entries(value)) {
+      if (isSignal(maybeSignal)) {
+        setDebugName(maybeSignal, debugFn, postfix);
+      }
+    }
+  }
 
-  return {
-    injector,
-    get isBrowser() {
-      return (isBrowser ??= injector.get(IS_BROWSER));
-    },
-    get isServer() {
-      return (isServer ??= injector.get(IS_SERVER));
-    },
-    get isMobile() {
-      return (isMobile ??= injector.get(IS_MOBILE));
-    },
-    onCleanup: (cleanupFn) => destroyRef.onDestroy(cleanupFn),
-  };
+  return value;
+}
+
+function setDebugName(signal: Signal<unknown>, debugFn: Fn, postfix?: string): void {
+  const node = signal[SIGNAL] as SignalNode<unknown>;
+
+  if (node.debugName === undefined) {
+    node.debugName = debugFn.name + (postfix ? '.' + postfix : '');
+  }
 }

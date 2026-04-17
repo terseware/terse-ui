@@ -9,7 +9,6 @@ import {
 } from '@angular/core';
 import {type BaseEffectNode, SIGNAL} from '@angular/core/primitives/signals';
 import {
-  assertEventTarget,
   type MaybeElementSignal,
   type MaybeSignal,
   setupContext,
@@ -169,10 +168,6 @@ function listenerImpl(applied: InternalListenerOptions, ...args: unknown[]): Lis
 
       if (!target) {
         return;
-      }
-
-      if (ngDevMode) {
-        assertEventTarget(target, 'listener');
       }
 
       target.addEventListener(event, untrackedHandler, nativeOptions);

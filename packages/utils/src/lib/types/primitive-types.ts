@@ -25,6 +25,9 @@ export type MaybeFnStrict<T, A extends unknown[] = never[]> = T extends Function
 /** `T | null | undefined`. */
 export type Nullish<T> = T | null | undefined;
 
+// https://github.com/microsoft/TypeScript/issues/29729
+export type Union<T, U> = T | (U & {});
+
 /**
  * Removes `null | undefined` from `T`.
  */
@@ -41,6 +44,15 @@ export type MaybeElementSignal<T extends Element> =
   | T
   | ElementRef<T>
   | Signal<T | ElementRef<T> | null | undefined>;
+
+export type SignalValue<S> = S extends Signal<infer V> ? V : never;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnySignal = Signal<any>;
+
+export type SignalValues<T extends readonly AnySignal[]> = {
+  readonly [K in keyof T]: SignalValue<T[K]>;
+};
 
 /** Either a direct value or a zero-arg function producing one. */
 export type MaybeComputation<T> = T | (() => T);
