@@ -8,56 +8,56 @@ import {linkedQueryParam} from './linked-query-param';
 class SearchComponent {
   readonly route = inject(ActivatedRoute);
 
-  readonly defaultBehavior = linkedQueryParam(() => ({
+  readonly defaultBehavior = linkedQueryParam({
     key: 'defaultBehavior',
     parse: (x) => x,
     stringify: (x) => x,
-  }));
+  });
 
-  readonly defaultBehaviorWithDefault = linkedQueryParam(() => ({
+  readonly defaultBehaviorWithDefault = linkedQueryParam({
     key: 'defaultBehaviorWithDefault',
     parse: (x) => x ?? 'default',
     stringify: (x) => x,
-  }));
+  });
 
-  readonly parseBehavior = linkedQueryParam(() => ({
+  readonly parseBehavior = linkedQueryParam({
     key: 'parseBehavior',
     parse: (x: string | null) => parseInt(x ?? '0', 10),
     stringify: (x) => x.toString(),
-  }));
+  });
 
-  readonly booleanParam = linkedQueryParam(() => ({
+  readonly booleanParam = linkedQueryParam({
     key: 'enabled',
     parse: (x) => x === 'true',
     stringify: (x) => (x ? 'true' : null),
-  }));
+  });
 
-  readonly customEqual = linkedQueryParam(() => ({
+  readonly customEqual = linkedQueryParam({
     key: 'custom',
     parse: (x) => x ?? '',
     stringify: (x) => x,
     equal: (a, b) => a.toLowerCase() === b.toLowerCase(),
-  }));
+  });
 
-  readonly replaceUrlParam = linkedQueryParam(() => ({
+  readonly replaceUrlParam = linkedQueryParam({
     key: 'replaced',
     parse: (x) => x,
     stringify: (x) => x,
     replaceUrl: true,
-  }));
+  });
 
   readonly dynamicKey = signal('keyA');
-  readonly dynamicParam = linkedQueryParam(() => ({
-    key: this.dynamicKey(),
+  readonly dynamicParam = linkedQueryParam({
+    key: this.dynamicKey,
     parse: (x) => x,
     stringify: (x) => x,
-  }));
+  });
 
-  readonly undefinedKey = linkedQueryParam(() => ({
+  readonly undefinedKey = linkedQueryParam({
     key: undefined,
     parse: (x) => x ?? 'fallback',
     stringify: (x) => x,
-  }));
+  });
 }
 
 describe(linkedQueryParam.name, () => {
@@ -141,9 +141,8 @@ describe(linkedQueryParam.name, () => {
       const instance = await harness.navigateByUrl('/search', SearchComponent);
 
       instance.parseBehavior.set(7);
-      await harness.fixture.whenStable();
-
       expect(instance.parseBehavior()).toBe(7);
+      await harness.fixture.whenStable();
       expect(instance.route.snapshot.queryParams['parseBehavior']).toBe('7');
     });
 
@@ -152,8 +151,6 @@ describe(linkedQueryParam.name, () => {
       expect(instance.booleanParam()).toBe(true);
 
       instance.booleanParam.set(false);
-      await harness.fixture.whenStable();
-
       expect(instance.booleanParam()).toBe(false);
     });
 
@@ -161,17 +158,15 @@ describe(linkedQueryParam.name, () => {
       const instance = await harness.navigateByUrl('/search', SearchComponent);
 
       instance.parseBehavior.set(1);
-      await harness.fixture.whenStable();
       expect(instance.parseBehavior()).toBe(1);
 
       instance.parseBehavior.set(2);
-      await harness.fixture.whenStable();
       expect(instance.parseBehavior()).toBe(2);
 
       instance.parseBehavior.set(3);
-      await harness.fixture.whenStable();
       expect(instance.parseBehavior()).toBe(3);
 
+      await harness.fixture.whenStable();
       expect(instance.route.snapshot.queryParams['parseBehavior']).toBe('3');
     });
   });
@@ -212,7 +207,7 @@ describe(linkedQueryParam.name, () => {
       const instance = await harness.navigateByUrl('/search?parseBehavior=1', SearchComponent);
       const ro = instance.parseBehavior.asReadonly();
 
-      await harness.navigateByUrl('/search?parseBehavior=2');
+      await harness.navigateByUrl('/search?parseBehavior=2', SearchComponent);
       expect(ro()).toBe(2);
     });
   });
@@ -233,9 +228,8 @@ describe(linkedQueryParam.name, () => {
       const instance = await harness.navigateByUrl('/search', SearchComponent);
 
       instance.replaceUrlParam.set('test');
-      await harness.fixture.whenStable();
-
       expect(instance.replaceUrlParam()).toBe('test');
+      await harness.fixture.whenStable();
       expect(instance.route.snapshot.queryParams['replaced']).toBe('test');
     });
   });
@@ -252,7 +246,6 @@ describe(linkedQueryParam.name, () => {
 
       instance.undefinedKey.set('anything');
       await harness.fixture.whenStable();
-
       expect(instance.route.snapshot.queryParams).toEqual(before);
     });
   });
@@ -271,8 +264,6 @@ describe(linkedQueryParam.name, () => {
       expect(instance.dynamicParam()).toBe('fromA');
 
       instance.dynamicKey.set('keyB');
-      // Trigger change detection so the computed re-evaluates.
-      harness.fixture.detectChanges();
       expect(instance.dynamicParam()).toBe('fromB');
     });
   });

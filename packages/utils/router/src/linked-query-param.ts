@@ -1,8 +1,8 @@
 import {computed, effect, inject, Injectable, signal} from '@angular/core';
 import {toSignal} from '@angular/core/rxjs-interop';
 import {ActivatedRoute, Router, type NavigationExtras} from '@angular/router';
-import {setupContext, type WithInjector} from '@terse-ui/utils';
-import {delegatedSignal, SignalMap} from '@terse-ui/utils/signals';
+import {setupContext, type MaybeSignal, type WithInjector} from '@terse-ui/utils';
+import {delegatedSignal, SignalMap, toValue} from '@terse-ui/utils/signals';
 
 type StringifyReturnType = string | number | boolean | null | undefined;
 
@@ -39,50 +39,46 @@ class QpNavigationScheduler {
 }
 
 export interface LinkedQueryParamOptions<T> extends NavigateMethodFields {
-  readonly key: string | undefined;
+  readonly key: MaybeSignal<string | undefined>;
   readonly parse: (value: string | null) => T;
   readonly stringify: (value: NoInfer<T>) => StringifyReturnType;
   readonly equal?: (a: NoInfer<T>, b: NoInfer<T>) => boolean;
 }
 
-export function linkedQueryParam<T>(
-  options: () => LinkedQueryParamOptions<T>,
-  opts?: WithInjector,
-) {
+/**
+ * Creates a {@link WritableSignal} that reads and writes a query parameter value.
+ */
+export function linkedQueryParam<T>(options: LinkedQueryParamOptions<T>, opts?: WithInjector) {
   const {runInContext} = setupContext(opts?.injector, linkedQueryParam);
   return runInContext(() => {
     const scheduler = inject(QpNavigationScheduler);
     const route = inject(ActivatedRoute);
     const qpMap = toSignal(route.queryParamMap);
 
-    const key = computed<string | undefined>(() => options().key);
-    const defaultValue = computed<T>(() => options().parse(null));
     const qpValue = computed<string | null>(() => {
-      const k = key();
+      const k = toValue(options.key);
       if (k === undefined) return null;
       return qpMap()?.get(k)?.trim() ?? null;
     });
 
-    return delegatedSignal(
-      () => {
+    return delegatedSignal({
+      read: () => {
         const qp = qpValue();
-        if (qp === null) return defaultValue();
-        return options().parse(qp);
+        if (qp === null) return options.parse(null);
+        return options.parse(qp);
       },
-      (v) => {
-        const k = key();
+      write: (v) => {
+        const k = toValue(options.key);
         if (k === undefined) return;
-        const stringify = options().stringify;
+        const stringify = options.stringify;
         if (stringify === undefined) return;
-        scheduler.emit(k, stringify(v), options());
+        scheduler.emit(k, stringify(v), options);
       },
-      {
-        equal: (a, b) => {
-          const equal = options().equal;
-          if (equal === undefined) return a === b;
-          return equal(a, b);
-        },
+      equal: (a, b) => {
+        const equal = options.equal;
+        if (equal === undefined) return a === b;
+        return equal(a, b);
       },
-    );
+    });
   });
 }

@@ -245,9 +245,9 @@ describe('statePipeline', () => {
     it('does not expose mutator methods', () => {
       TestBed.runInInjectionContext(() => {
         const ro = statePipeline(5).asReadonly();
-        expect('set' in ro).toBe(false); // eslint-disable-line @angular-eslint/no-uncalled-signals
-        expect('intercept' in ro).toBe(false); // eslint-disable-line @angular-eslint/no-uncalled-signals
-        expect('override' in ro).toBe(false); // eslint-disable-line @angular-eslint/no-uncalled-signals
+        expect('set' in ro).toBe(false);
+        expect('intercept' in ro).toBe(false);
+        expect('override' in ro).toBe(false);
       });
     });
   });

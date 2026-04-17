@@ -47,7 +47,7 @@ export type MaybeComputation<T> = T | (() => T);
 
 /** Provides optional injector property. */
 export interface WithInjector {
-  readonly injector?: Injector | undefined;
+  readonly injector?: Injector;
 }
 
 /** Any concrete class constructor. */

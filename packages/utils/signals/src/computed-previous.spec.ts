@@ -132,8 +132,8 @@ describe('computedPrevious', () => {
       const source = signal(1);
       const prev = computedPrevious(() => source());
 
-      expect('set' in prev).toBe(false); // eslint-disable-line @angular-eslint/no-uncalled-signals
-      expect('update' in prev).toBe(false); // eslint-disable-line @angular-eslint/no-uncalled-signals
+      expect('set' in prev).toBe(false);
+      expect('update' in prev).toBe(false);
     });
   });
 });

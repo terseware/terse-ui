@@ -55,7 +55,6 @@ export default [
   },
   {
     files: ['**/*.ts'],
-    ignores: ['**/*.spec.ts'],
     rules: {
       // TypeScript strict overrides for library code
       '@typescript-eslint/explicit-member-accessibility': ['error', {accessibility: 'no-public'}],
@@ -85,8 +84,7 @@ export default [
     },
   },
   {
-    files: ['**/*.ts', '**/*.html'],
-    ignores: ['**/*.spec.ts'],
+    files: ['**/*.html'],
     rules: {
       '@angular-eslint/template/attributes-order': [
         'warn',
@@ -127,6 +125,7 @@ export default [
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
       '@angular-eslint/prefer-on-push-component-change-detection': 'off',
     },
   },
