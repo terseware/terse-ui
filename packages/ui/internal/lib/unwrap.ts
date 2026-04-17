@@ -1,8 +1,26 @@
 import type {Injector} from '@angular/core';
-import {runInInjectionContext} from '@angular/core';
+import {untracked as _untracked, isSignal, runInInjectionContext} from '@angular/core';
 import {deepMerge} from './deep-merge';
 import type {DeepPartial, MaybeFn, MaybeProp} from './typings';
 import {isFunction} from './validators';
+
+export interface ToValueFn {
+  <T>(maybeSignal: MaybeSignal<T>): T;
+  untracked: <T>(maybeSignal: MaybeSignal<T>) => T;
+}
+
+export const toValue: ToValueFn = (() => {
+  const fn = toValueFn as ToValueFn;
+  fn.untracked = (v) => toValueFn(v, true);
+  return fn;
+})();
+
+function toValueFn<T>(maybeSignal: MaybeSignal<T>, untracked = false): T {
+  if (isSignal(maybeSignal)) {
+    return untracked ? _untracked(maybeSignal) : maybeSignal();
+  }
+  return maybeSignal;
+}
 
 /** Resolves `val` — returns it directly, or calls it with `args` if it's a function. */
 export function unwrap<T, A extends unknown[] = never[]>(val: MaybeFn<T, A>, ...args: A): T {

@@ -1,5 +1,5 @@
 import {Directive, inject} from '@angular/core';
-import {Identity, TerseFocusable, TerseHoverable, TersePressable} from '@terse-ui/core';
+import {TerseFocusable, TerseHoverable, TerseIdentity} from '@terse-ui/core';
 import {Button} from './button';
 
 export interface TerseButton extends Button {}
@@ -25,12 +25,11 @@ export interface TerseButton extends Button {}
   hostDirectives: [
     TerseFocusable,
     TerseHoverable,
-    TersePressable,
+    TerseIdentity,
     {
       directive: Button,
       inputs: ['captureClick', 'captureMouseDown', 'capturePointerDown'],
     },
-    {directive: Identity, inputs: ['role', 'type', 'ariaHasPopup', 'ariaRoleDescription']},
   ],
 })
 export class TerseButton {

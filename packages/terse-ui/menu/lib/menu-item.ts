@@ -1,9 +1,8 @@
 import {computed, Directive, inject, model} from '@angular/core';
-import {DataHighlighted, RoleAttribute} from '@terse-ui/core/attributes';
-import {CompositeItem} from '@terse-ui/core/button';
+import {Button} from '@terse-ui/core/button';
 import {OnClick, OnMouseUp, OnPointerEnter} from '@terse-ui/core/events';
-import {Focus, Hover} from '@terse-ui/core/interactions';
 import {RovingFocusItem} from '@terse-ui/core/roving-focus';
+import {Focusable, Hoverable, Identity} from '@terse-ui/core/src';
 import {injectElement} from '@terse-ui/core/utils';
 import {Menu} from './menu';
 import {MenuTrigger} from './menu-trigger';
@@ -29,49 +28,54 @@ import {MenuTrigger} from './menu-trigger';
  */
 @Directive({
   hostDirectives: [
-    CompositeItem,
+    Button,
     RovingFocusItem,
-    Hover,
-    DataHighlighted,
+    Focusable,
+    Hoverable,
+    Identity,
     OnClick,
     OnPointerEnter,
     OnMouseUp,
   ],
+  host: {
+    '[attr.data-highlighted]': 'isHighlighted() ? "" : null',
+  },
 })
 export class MenuItem {
   readonly element = injectElement();
   readonly #rovingItem = inject(RovingFocusItem);
-  readonly #hover = inject(Hover);
-  readonly #focus = inject(Focus);
+  readonly #hover = inject(Hoverable);
+  readonly #focus = inject(Focusable);
 
   readonly #parentMenu = inject(Menu);
   readonly trigger = this.#parentMenu.trigger;
 
   readonly #selfTrigger = inject(MenuTrigger, {optional: true, self: true});
 
-  readonly isActive = computed(() => this.#focus.focused() != null);
+  readonly isActive = computed(() => this.#focus.isActiveElement());
   readonly isHighlighted = computed(() => this.#hover.hovered() || this.isActive());
 
   readonly closeOnClick = model(true);
 
   constructor() {
-    inject(RoleAttribute).value.pipe(({current}) => current ?? 'menuitem');
-    inject(DataHighlighted).value.pipe(({next}) => next(this.isHighlighted()));
+    this.#focus.composite.append(true);
 
-    inject(OnClick).pipe(({next}) => {
+    inject(Identity).role.intercept(({next}) => next('menuitem'));
+
+    inject(OnClick).intercept(({next}) => {
       next();
       if (this.#selfTrigger) return;
       if (!this.closeOnClick()) return;
       this.trigger.close('click');
     });
 
-    inject(OnPointerEnter).pipe(({event, next}) => {
+    inject(OnPointerEnter).intercept(({event, next}) => {
       next();
       if (event.pointerType === 'touch') return;
       this.focus();
     });
 
-    inject(OnMouseUp).pipe(({next}) => {
+    inject(OnMouseUp).intercept(({next}) => {
       next();
       if (this.trigger.allowItemClickOnMouseUp()) {
         this.element.click();

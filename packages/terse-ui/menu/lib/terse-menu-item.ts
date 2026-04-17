@@ -1,5 +1,6 @@
 import {Directive, inject} from '@angular/core';
-import {Disabler} from '@terse-ui/core/disabler';
+import {TerseButton} from '@terse-ui/core/button';
+import {TerseRovingFocusItem} from '@terse-ui/core/roving-focus';
 import {MenuItem} from './menu-item';
 
 export interface TerseMenuItem extends MenuItem {}
@@ -8,12 +9,13 @@ export interface TerseMenuItem extends MenuItem {}
   selector: '[terseMenuItem]',
   exportAs: 'terseMenuItem',
   hostDirectives: [
+    TerseButton,
+    TerseRovingFocusItem,
     {
       directive: MenuItem,
-      inputs: ['closeOnClick:terseMenuItemCloseOnClick'],
-      outputs: ['closeOnClickChange:terseMenuItemCloseOnClickChange'],
+      inputs: ['closeOnClick:menuItemCloseOnClick'],
+      outputs: ['closeOnClickChange:menuItemCloseOnClickChange'],
     },
-    {directive: Disabler, inputs: ['disabled', 'disablerOptions:terseMenuItemDisablerOptions']},
   ],
 })
 export class TerseMenuItem {

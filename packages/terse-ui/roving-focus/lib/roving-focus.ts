@@ -1,6 +1,6 @@
 import {booleanAttribute, computed, Directive, inject, input, signal} from '@angular/core';
 import {activeElement} from '@signality/core';
-import {Orientation} from '@terse-ui/core/attributes';
+import {Orientation} from '@terse-ui/core';
 import {OnKeyDown} from '@terse-ui/core/events';
 import {SignalMap} from 'ngxtension/collections';
 import type {RovingFocusItem} from './roving-focus-item';
@@ -9,9 +9,9 @@ import type {RovingFocusItem} from './roving-focus-item';
   hostDirectives: [Orientation, OnKeyDown],
 })
 export class RovingFocus {
-  readonly enabled = input(true, {transform: booleanAttribute});
-  readonly wrap = input(true, {transform: booleanAttribute});
-  readonly homeEnd = input(true, {transform: booleanAttribute});
+  readonly enabled = input(true, {alias: 'rovingFocusEnabled', transform: booleanAttribute});
+  readonly wrap = input(true, {alias: 'rovingFocusWrap', transform: booleanAttribute});
+  readonly homeEnd = input(true, {alias: 'rovingFocusHomeEnd', transform: booleanAttribute});
 
   readonly #items = new SignalMap<string, RovingFocusItem>();
   readonly itemsSize = computed(() => this.#items.size);
@@ -36,7 +36,7 @@ export class RovingFocus {
   );
 
   readonly #onKeyDown = inject(OnKeyDown);
-  readonly #orientation = inject(Orientation).value;
+  readonly #orientation = inject(Orientation).state;
   readonly orientation = this.#orientation.asReadonly();
   readonly isVertical = computed(() => this.orientation() === 'vertical');
   readonly isHorizontal = computed(() => this.orientation() === 'horizontal');
@@ -48,8 +48,8 @@ export class RovingFocus {
   });
 
   constructor() {
-    this.#orientation.pipe(({current, next}) => next(current ?? 'vertical'));
-    this.#onKeyDown.pipe(({event, next, preventDefault}) => {
+    this.#orientation.intercept(({current, next}) => next(current ?? 'vertical'));
+    this.#onKeyDown.intercept(({event, next, preventDefault}) => {
       if (!this.enabled()) {
         next();
         return;

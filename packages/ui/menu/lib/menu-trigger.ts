@@ -95,7 +95,7 @@ export class MenuTrigger {
     // not a DOM descendant of the trigger) flips `hovered` to false and
     // collapses the chain mid-navigation.
     if (this.isSubmenu) {
-      this.opened.pipe((opened) => opened || hovered() || !!this.#menu()?.hovered());
+      this.opened.intercept((opened) => opened || hovered() || !!this.#menu()?.hovered());
     }
 
     this.#wireOpenKeys(keys);

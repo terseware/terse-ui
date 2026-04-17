@@ -1,12 +1,23 @@
-import {DestroyRef, inject, type EffectRef, type Injector} from '@angular/core';
+import {type EffectRef, type Injector} from '@angular/core';
+import {setupContext} from '@signality/core/internal';
 
 /** Replayable `setTimeout` that auto-clears on injector destroy. */
 export class Timeout implements EffectRef {
   #currentId = 0;
 
-  constructor(injector?: Injector) {
-    const destroy = injector?.get(DestroyRef) ?? inject(DestroyRef);
-    destroy.onDestroy(() => this.clear());
+  protected constructor(injector?: Injector) {
+    const {runInContext} = setupContext(injector, new.target.constructor.bind(this));
+    runInContext(({onCleanup}) => onCleanup(() => this.destroy()));
+  }
+
+  static create(injector?: Injector): Timeout {
+    return new Timeout(injector);
+  }
+
+  static spawn(delay: number, fn: () => void, injector?: Injector): Timeout {
+    const timeout = new Timeout(injector);
+    timeout.set(delay, fn);
+    return timeout;
   }
 
   set(delay: number, fn: () => void): void {

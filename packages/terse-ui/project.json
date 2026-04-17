@@ -1,7 +1,7 @@
 {
   "name": "terse-ui",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/terse-ui/src",
+  "sourceRoot": "packages/terse-ui",
   "prefix": "terse",
   "projectType": "library",
   "release": {

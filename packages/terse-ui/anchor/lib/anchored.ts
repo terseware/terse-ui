@@ -9,8 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import {setupContext} from '@signality/core/internal';
-import {DataAlign, DataOffset, DataSide} from '@terse-ui/core/attributes';
-import {Styles} from '@terse-ui/core/styles';
+import {Styles} from '@terse-ui/core';
 import {configBuilder, injectElement, isString} from '@terse-ui/core/utils';
 import {Anchor, type AnchorName} from './anchor';
 
@@ -73,7 +72,12 @@ export {provideAnchoredOpts};
  * `position-anchor` / `position-area` APIs, with fallback placements.
  */
 @Directive({
-  hostDirectives: [Styles, DataSide, DataAlign, DataOffset],
+  hostDirectives: [Styles],
+  host: {
+    '[attr.data-side]': 'anchoredSide()',
+    '[attr.data-align]': 'align()',
+    '[attr.data-offset]': 'offset()',
+  },
 })
 export class Anchored {
   readonly #element = injectElement();
@@ -116,19 +120,12 @@ export class Anchored {
       this.#align.update((a) => style.positionArea ?? a);
     });
 
-    inject(Styles).value.pipe(({next, current}) =>
-      next({
-        ...current,
-        'position-area': this.anchoredSide(),
-        'position-anchor': this.positionAnchor(),
-        'position-try-fallbacks': this.anchoredPositionTryFallbacks().join(', '),
-        'position': this.anchoredPosition(),
-        [`margin-${FLIP_ALIGN[this.align()]}`]: this.anchoredMargin(),
-      }),
-    );
-
-    inject(DataSide).value.pipe(({next}) => next(this.anchoredSide()));
-    inject(DataAlign).value.pipe(({next}) => next(this.align()));
-    inject(DataOffset).value.pipe(({next}) => next(this.offset()));
+    inject(Styles).patch(() => ({
+      'position-area': this.anchoredSide(),
+      'position-anchor': this.positionAnchor(),
+      'position-try-fallbacks': this.anchoredPositionTryFallbacks().join(', '),
+      'position': this.anchoredPosition(),
+      [`margin-${FLIP_ALIGN[this.align()]}`]: this.anchoredMargin(),
+    }));
   }
 }

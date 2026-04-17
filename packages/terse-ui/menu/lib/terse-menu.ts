@@ -1,5 +1,7 @@
 import {Directive, inject} from '@angular/core';
 import {Anchored} from '@terse-ui/core/anchor';
+import {TerseRovingFocus} from '@terse-ui/core/roving-focus';
+import {TerseIdentity} from '@terse-ui/core/src';
 import {Menu} from './menu';
 
 export interface TerseMenu extends Menu {}
@@ -9,6 +11,8 @@ export interface TerseMenu extends Menu {}
   exportAs: 'terseMenu',
   hostDirectives: [
     Menu,
+    TerseRovingFocus,
+    TerseIdentity,
     {
       directive: Anchored,
       inputs: ['anchoredSide:terseMenuSide', 'anchoredMargin:terseMenuMargin'],

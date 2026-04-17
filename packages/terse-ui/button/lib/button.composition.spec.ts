@@ -27,7 +27,7 @@ class TestCompositeItem {
     inject(TerseFocusable).composite.append(true);
     // Space fires on keydown (immediate activation). Prepend so the composite
     // wrapper sees defaultPrevented set by inner Button before delegating.
-    inject(OnKeyDown).pipe(
+    inject(OnKeyDown).intercept(
       ({event, next, haltPipeline, pipelineHalted}) => {
         next();
         if (pipelineHalted()) return;
@@ -51,7 +51,7 @@ class TestCompositeItem {
     );
 
     // Suppress Space on keyup (activation already happened on keydown)
-    inject(OnKeyUp).pipe(
+    inject(OnKeyUp).intercept(
       ({event, next, haltPipeline}) => {
         if (event.target === event.currentTarget && event.key === ' ') {
           event.preventDefault();
@@ -72,7 +72,7 @@ class TestCompositeItem {
 class TestMenuItem {
   constructor() {
     inject(TerseFocusable).composite.append(true);
-    inject(Identity).role.pipe(({next}) => next('menuitem'));
+    inject(Identity).role.intercept(({next}) => next('menuitem'));
   }
 }
 
@@ -85,7 +85,7 @@ class TestMenuItem {
 })
 class TestMenuItemComposite {
   constructor() {
-    inject(Identity).role.pipe(({next}) => next('menuitem'));
+    inject(Identity).role.intercept(({next}) => next('menuitem'));
   }
 }
 
@@ -103,7 +103,7 @@ class TestRovingItem {
     inject(TerseFocusable).composite.append(true);
     // Roving focus must intercept arrows even when the button is disabled
     // (so navigation works on disabled items). Prepend to run before Button.
-    inject(OnKeyDown).pipe(
+    inject(OnKeyDown).intercept(
       ({event, next}) => {
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           this.navigated.set(event.key);
@@ -250,7 +250,7 @@ describe('Button composition', () => {
     })
     class TestGridCell {
       constructor() {
-        inject(Identity).role.pipe(({next}) => next('gridcell'));
+        inject(Identity).role.intercept(({next}) => next('gridcell'));
       }
     }
 
@@ -284,7 +284,7 @@ describe('Button composition', () => {
     })
     class TestSwitch {
       constructor() {
-        inject(Identity).role.pipe(({next}) => next('switch'));
+        inject(Identity).role.intercept(({next}) => next('switch'));
       }
     }
 
@@ -322,7 +322,7 @@ describe('Button composition', () => {
     })
     class TestHalter {
       constructor() {
-        inject(OnKeyDown).pipe(({next, haltPipeline}) => {
+        inject(OnKeyDown).intercept(({next, haltPipeline}) => {
           haltPipeline();
           next();
         });
@@ -407,7 +407,7 @@ describe('Button composition', () => {
       })
       class ClickConsumer {
         constructor() {
-          inject(OnClick).pipe(({next, pipelineHalted}) => {
+          inject(OnClick).intercept(({next, pipelineHalted}) => {
             next();
             if (!pipelineHalted()) pipelineSpy();
           });
@@ -432,7 +432,7 @@ describe('Button composition', () => {
       })
       class MouseConsumer {
         constructor() {
-          inject(OnMouseDown).pipe(({next, pipelineHalted}) => {
+          inject(OnMouseDown).intercept(({next, pipelineHalted}) => {
             next();
             if (!pipelineHalted()) pipelineSpy();
           });
@@ -457,7 +457,7 @@ describe('Button composition', () => {
       })
       class PointerConsumer {
         constructor() {
-          inject(OnPointerDown).pipe(({next, pipelineHalted}) => {
+          inject(OnPointerDown).intercept(({next, pipelineHalted}) => {
             next();
             if (!pipelineHalted()) pipelineSpy();
           });
@@ -482,7 +482,7 @@ describe('Button composition', () => {
       })
       class ClickConsumer {
         constructor() {
-          inject(OnClick).pipe(({next, pipelineHalted}) => {
+          inject(OnClick).intercept(({next, pipelineHalted}) => {
             next();
             if (!pipelineHalted()) pipelineSpy();
           });
@@ -504,7 +504,7 @@ describe('Button composition', () => {
       })
       class TestMenuTrigger {
         constructor() {
-          inject(OnClick).pipe(
+          inject(OnClick).intercept(
             ({next, pipelineHalted}) => {
               next();
               results.push(pipelineHalted());

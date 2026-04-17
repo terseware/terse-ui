@@ -1,5 +1,5 @@
 import {Directive, inject} from '@angular/core';
-import {Styles} from '@terse-ui/core/styles';
+import {Styles} from '@terse-ui/core';
 import {IdGenerator} from '@terse-ui/core/utils';
 
 /** CSS custom ident written to `anchor-name` (`--anchor-N`). */
@@ -13,6 +13,6 @@ export class Anchor {
   readonly #generator = inject(IdGenerator);
   readonly value = this.#generator.generate(`--anchor`);
   constructor() {
-    inject(Styles).value.pipe(({next, current}) => next({...current, ['anchor-name']: this.value}));
+    inject(Styles).patch(() => ({['anchor-name']: this.value}));
   }
 }

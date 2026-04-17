@@ -34,185 +34,179 @@ describe('Anchor', () => {
     const host = fixture.debugElement.children[0].injector.get(Host);
     expect(host.anchor.value).toMatch(/^--anchor-\d+$/);
   });
-});
 
-describe('Anchored', () => {
-  it('writes position/position-area/position-try-fallbacks defaults', async () => {
-    await render(`<div [terseAnchored]="'--anchor-x'" aria-label="popover">P</div>`, {
-      imports: IMPORTS,
-    });
-    const popover = screen.getByLabelText('popover');
+  describe('Anchored', () => {
+    it('writes position/position-area/position-try-fallbacks defaults', async () => {
+      await render(`<div [terseAnchored]="'--anchor-x'" aria-label="popover">P</div>`, {
+        imports: IMPORTS,
+      });
+      const popover = screen.getByLabelText('popover');
 
-    expect(popover.style.getPropertyValue('position')).toBe('fixed');
-    expect(popover.style.getPropertyValue('position-area')).toBe('bottom');
-    // Default fallbacks joined with a comma per CSS `position-try-fallbacks` syntax.
-    expect(popover.style.getPropertyValue('position-try-fallbacks')).toBe(
-      'flip-block, flip-inline, flip-block flip-inline',
-    );
-  });
-
-  it('reflects data-side / data-align / data-offset', async () => {
-    @Component({
-      selector: 'test-host',
-      imports: IMPORTS,
-      template: `<div
-        aria-label="popover"
-        terseAnchored
-        terseAnchoredSide="top"
-        [terseAnchoredMargin]="8"
-      >
-        P
-      </div>`,
-    })
-    class Host {}
-
-    await render(Host);
-    const popover = screen.getByLabelText('popover');
-
-    expect(popover).toHaveAttribute('data-side', 'top');
-    expect(popover).toHaveAttribute('data-align', 'top');
-    expect(popover).toHaveAttribute('data-offset', '8px');
-  });
-
-  it('keeps a string margin verbatim as the data-offset value', async () => {
-    await render(`<div terseAnchored terseAnchoredMargin="1rem" aria-label="popover">P</div>`, {
-      imports: IMPORTS,
-    });
-    expect(screen.getByLabelText('popover')).toHaveAttribute('data-offset', '1rem');
-  });
-
-  it('honors a raw --anchor-* ident passed to [terseAnchored]', async () => {
-    await render(`<div [terseAnchored]="'--anchor-custom'" aria-label="popover">P</div>`, {
-      imports: IMPORTS,
+      expect(popover.style.getPropertyValue('position')).toBe('fixed');
+      expect(popover.style.getPropertyValue('position-area')).toBe('bottom');
+      // Default fallbacks joined with a comma per CSS `position-try-fallbacks` syntax.
+      expect(popover.style.getPropertyValue('position-try-fallbacks')).toBe(
+        'flip-block, flip-inline, flip-block flip-inline',
+      );
     });
 
-    expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe(
-      '--anchor-custom',
-    );
-  });
+    it('reflects data-side / data-align / data-offset', async () => {
+      @Component({
+        selector: 'test-host',
+        imports: IMPORTS,
+        template: `<div anchoredSide="top" aria-label="popover" terseAnchored [anchoredMargin]="8">
+          P
+        </div>`,
+      })
+      class Host {}
 
-  it('honors an Anchor instance passed via template ref', async () => {
-    @Component({
-      selector: 'test-host',
-      imports: IMPORTS,
-      template: `
-        <button #trigger="terseAnchor" aria-label="trigger" terseAnchor>T</button>
-        <div aria-label="popover" [terseAnchored]="trigger">P</div>
-      `,
-    })
-    class Host {
-      readonly trigger = viewChild.required<Anchor>('trigger');
-    }
+      await render(Host);
+      const popover = screen.getByLabelText('popover');
 
-    const {fixture} = await render(Host);
-    const trigger = fixture.componentInstance.trigger();
-    const popover = screen.getByLabelText('popover');
+      expect(popover).toHaveAttribute('data-side', 'top');
+      expect(popover).toHaveAttribute('data-align', 'top');
+      expect(popover).toHaveAttribute('data-offset', '8px');
+    });
 
-    expect(popover.style.getPropertyValue('position-anchor')).toBe(trigger.value);
-    expect(popover.style.getPropertyValue('position-anchor')).toMatch(/^--anchor-\d+$/);
-  });
+    it('keeps a string margin verbatim as the data-offset value', async () => {
+      await render(`<div terseAnchored anchoredMargin="1rem" aria-label="popover">P</div>`, {
+        imports: IMPORTS,
+      });
+      expect(screen.getByLabelText('popover')).toHaveAttribute('data-offset', '1rem');
+    });
 
-  it('falls back to a parent Anchor through the DI tree', async () => {
-    @Component({
-      selector: 'test-host',
-      imports: IMPORTS,
-      template: `
-        <div aria-label="trigger" terseAnchor>
-          <div aria-label="popover" terseAnchored>P</div>
-        </div>
-      `,
-    })
-    class Host {}
+    it('honors a raw --anchor-* ident passed to [terseAnchored]', async () => {
+      await render(`<div [terseAnchored]="'--anchor-custom'" aria-label="popover">P</div>`, {
+        imports: IMPORTS,
+      });
 
-    const {fixture} = await render(Host);
-    fixture.detectChanges();
+      expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe(
+        '--anchor-custom',
+      );
+    });
 
-    const trigger = screen.getByLabelText('trigger');
-    const popover = screen.getByLabelText('popover');
-    const parentName = trigger.style.getPropertyValue('anchor-name');
+    it('honors an Anchor instance passed via template ref', async () => {
+      @Component({
+        selector: 'test-host',
+        imports: IMPORTS,
+        template: `
+          <button #trigger="terseAnchor" aria-label="trigger" terseAnchor>T</button>
+          <div aria-label="popover" [terseAnchored]="trigger">P</div>
+        `,
+      })
+      class Host {
+        readonly trigger = viewChild.required<Anchor>('trigger');
+      }
 
-    expect(parentName).toMatch(/^--anchor-\d+$/);
-    expect(popover.style.getPropertyValue('position-anchor')).toBe(parentName);
-  });
+      const {fixture} = await render(Host);
+      const trigger = fixture.componentInstance.trigger();
+      const popover = screen.getByLabelText('popover');
 
-  it('resolves `positionAnchor()` to the ancestor Anchor instance value', async () => {
-    @Directive({selector: '[parentAnchor]', hostDirectives: [TerseAnchor]})
-    class ParentAnchor {
-      readonly anchor = inject(Anchor);
-    }
+      expect(popover.style.getPropertyValue('position-anchor')).toBe(trigger.value);
+      expect(popover.style.getPropertyValue('position-anchor')).toMatch(/^--anchor-\d+$/);
+    });
 
-    @Directive({selector: '[childAnchored]', hostDirectives: [TerseAnchored]})
-    class ChildAnchored {
-      readonly anchored = inject(Anchored);
-    }
+    it('falls back to a parent Anchor through the DI tree', async () => {
+      @Component({
+        selector: 'test-host',
+        imports: IMPORTS,
+        template: `
+          <div aria-label="trigger" terseAnchor>
+            <div aria-label="popover" terseAnchored>P</div>
+          </div>
+        `,
+      })
+      class Host {}
 
-    const {fixture} = await render(
-      `<div parentAnchor>
+      const {fixture} = await render(Host);
+      fixture.detectChanges();
+
+      const trigger = screen.getByLabelText('trigger');
+      const popover = screen.getByLabelText('popover');
+      const parentName = trigger.style.getPropertyValue('anchor-name');
+
+      expect(parentName).toMatch(/^--anchor-\d+$/);
+      expect(popover.style.getPropertyValue('position-anchor')).toBe(parentName);
+    });
+
+    it('resolves `positionAnchor()` to the ancestor Anchor instance value', async () => {
+      @Directive({selector: '[parentAnchor]', hostDirectives: [TerseAnchor]})
+      class ParentAnchor {
+        readonly anchor = inject(Anchor);
+      }
+
+      @Directive({selector: '[childAnchored]', hostDirectives: [TerseAnchored]})
+      class ChildAnchored {
+        readonly anchored = inject(Anchored);
+      }
+
+      const {fixture} = await render(
+        `<div parentAnchor>
          <div childAnchored aria-label="popover">P</div>
        </div>`,
-      {imports: [ParentAnchor, ChildAnchored]},
-    );
+        {imports: [ParentAnchor, ChildAnchored]},
+      );
 
-    const parent = fixture.debugElement.children[0].injector.get(ParentAnchor);
-    const child = fixture.debugElement
-      .query((d) => d.nativeElement.hasAttribute('childAnchored'))
-      .injector.get(ChildAnchored);
+      const parent = fixture.debugElement.children[0].injector.get(ParentAnchor);
+      const child = fixture.debugElement
+        .query((d) => d.nativeElement.hasAttribute('childAnchored'))
+        .injector.get(ChildAnchored);
 
-    expect(child.anchored.positionAnchor()).toBe(parent.anchor.value);
-    expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe(
-      parent.anchor.value,
-    );
-  });
+      expect(child.anchored.positionAnchor()).toBe(parent.anchor.value);
+      expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe(
+        parent.anchor.value,
+      );
+    });
 
-  it('emits a null position-anchor and warns when no ancestor Anchor exists', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    it('emits a null position-anchor and warns when no ancestor Anchor exists', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await render(`<div terseAnchored aria-label="popover">P</div>`, {imports: IMPORTS});
+      await render(`<div terseAnchored aria-label="popover">P</div>`, {imports: IMPORTS});
 
-    expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe('');
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No parent anchor found'));
+      expect(screen.getByLabelText('popover').style.getPropertyValue('position-anchor')).toBe('');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No parent anchor found'));
 
-    warnSpy.mockRestore();
-  });
+      warnSpy.mockRestore();
+    });
 
-  it('sets a flipped margin on the opposite edge from `align`', async () => {
-    await render(
-      `<div terseAnchored terseAnchoredSide="top" terseAnchoredMargin="12px" aria-label="popover">P</div>`,
-      {imports: IMPORTS},
-    );
-    const popover = screen.getByLabelText('popover');
-    // align = top → margin applied to bottom (the FLIP_ALIGN pair).
-    expect(popover.style.getPropertyValue('margin-bottom')).toBe('12px');
-    expect(popover.style.getPropertyValue('margin-top')).toBe('');
-  });
+    it('sets a flipped margin on the opposite edge from `align`', async () => {
+      await render(
+        `<div terseAnchored anchoredSide="top" anchoredMargin="12px" aria-label="popover">P</div>`,
+        {imports: IMPORTS},
+      );
+      const popover = screen.getByLabelText('popover');
+      // align = top → margin applied to bottom (the FLIP_ALIGN pair).
+      expect(popover.style.getPropertyValue('margin-bottom')).toBe('12px');
+      expect(popover.style.getPropertyValue('margin-top')).toBe('');
+    });
 
-  it('joins custom positionTryFallbacks with commas', async () => {
-    @Component({
-      selector: 'test-host',
-      imports: IMPORTS,
-      template: `<div
-        aria-label="popover"
-        terseAnchored
-        [terseAnchoredPositionTryFallbacks]="fallbacks"
-      >
-        P
-      </div>`,
-    })
-    class Host {
-      readonly fallbacks = ['flip-block', 'flip-inline'];
-    }
+    it('joins custom positionTryFallbacks with commas', async () => {
+      @Component({
+        selector: 'test-host',
+        imports: IMPORTS,
+        template: `<div
+          aria-label="popover"
+          terseAnchored
+          [anchoredPositionTryFallbacks]="fallbacks"
+        >
+          P
+        </div>`,
+      })
+      class Host {
+        readonly fallbacks = ['flip-block', 'flip-inline'];
+      }
 
-    await render(Host);
-    expect(screen.getByLabelText('popover').style.getPropertyValue('position-try-fallbacks')).toBe(
-      'flip-block, flip-inline',
-    );
-  });
+      await render(Host);
+      expect(
+        screen.getByLabelText('popover').style.getPropertyValue('position-try-fallbacks'),
+      ).toBe('flip-block, flip-inline');
+    });
 
-  it('accepts `absolute` for the position input', async () => {
-    await render(
-      `<div terseAnchored terseAnchoredPosition="absolute" aria-label="popover">P</div>`,
-      {imports: IMPORTS},
-    );
-    expect(screen.getByLabelText('popover').style.getPropertyValue('position')).toBe('absolute');
+    it('accepts `absolute` for the position input', async () => {
+      await render(`<div terseAnchored anchoredPosition="absolute" aria-label="popover">P</div>`, {
+        imports: IMPORTS,
+      });
+      expect(screen.getByLabelText('popover').style.getPropertyValue('position')).toBe('absolute');
+    });
   });
 });

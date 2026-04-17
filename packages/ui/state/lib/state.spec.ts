@@ -123,7 +123,7 @@ describe('Source', () => {
       const source = fixture.debugElement.children[0].injector.get(TestSource);
       const envInjector = fixture.debugElement.children[0].injector.get(EnvironmentInjector);
 
-      runInInjectionContext(envInjector, () => source.pipe(computed(() => external())));
+      runInInjectionContext(envInjector, () => source.intercept(computed(() => external())));
       fixture.detectChanges();
 
       expect(source()).toBe(100);
@@ -145,7 +145,7 @@ describe('Source', () => {
 
       source['set'](42);
       runInInjectionContext(envInjector, () =>
-        source.pipe((u) => (external() > 0 ? external() : u)),
+        source.intercept((u) => (external() > 0 ? external() : u)),
       );
       fixture.detectChanges();
 
@@ -190,7 +190,7 @@ describe('Source', () => {
       const source = fixture.debugElement.children[0].injector.get(TestConvertSource);
       const envInjector = fixture.debugElement.children[0].injector.get(EnvironmentInjector);
 
-      runInInjectionContext(envInjector, () => source.pipe(computed(() => external())));
+      runInInjectionContext(envInjector, () => source.intercept(computed(() => external())));
       fixture.detectChanges();
 
       expect(source()).toEqual(['bound']);

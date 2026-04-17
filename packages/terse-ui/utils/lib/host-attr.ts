@@ -1,4 +1,4 @@
-import {HostAttributeToken, inject, Injector} from '@angular/core';
+import {HostAttributeToken, inject, type Injector} from '@angular/core';
 import {setupContext} from '@signality/core/internal';
 
 export function hostAttr(attr: string, injector?: Injector): string | null {

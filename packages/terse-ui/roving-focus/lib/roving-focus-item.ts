@@ -1,39 +1,35 @@
 import {DestroyRef, Directive, effect, forwardRef, inject} from '@angular/core';
-import {IdAttribute, TabIndex} from '@terse-ui/core/attributes';
-import {Disabler} from '@terse-ui/core/disabler';
-import {Focus} from '@terse-ui/core/interactions';
+import {Focusable, Identifier} from '@terse-ui/core';
 import {injectElement} from '@terse-ui/core/utils';
 import {RovingFocus} from './roving-focus';
 
 @Directive({
-  hostDirectives: [IdAttribute, TabIndex, Focus, Disabler],
+  hostDirectives: [Identifier, Focusable],
 })
 export class RovingFocusItem {
   readonly element = injectElement();
-  readonly id = inject(IdAttribute).value;
+  readonly id = inject(Identifier).value;
 
-  readonly #focus = inject(Focus);
-  readonly #tabIndex = inject(TabIndex);
   readonly #parent = inject(forwardRef(() => RovingFocus));
-  readonly #disabled = inject(Disabler);
-  readonly hardDisabled = this.#disabled.hard;
-  readonly softDisabled = this.#disabled.soft;
+  readonly #focusable = inject(Focusable);
+  readonly hardDisabled = this.#focusable.hardDisabled;
+  readonly softDisabled = this.#focusable.softDisabled;
 
   constructor() {
     inject(DestroyRef).onDestroy(this.#parent.registerItem(this));
-    this.#tabIndex.value.pipe(({next}) => next(this.#parent.tabStop() === this ? 0 : -1));
+    this.#focusable.tabIndex.intercept(({next}) => next(this.#parent.tabStop() === this ? 0 : -1));
     effect(() => {
-      if (this.#focus.focused()) {
+      if (this.#focusable.isActiveElement()) {
         this.#parent.claimTabStop(this);
       }
     });
   }
 
   focusItem(): void {
-    this.#focus.focus();
+    this.#focusable.focus();
   }
 
   blurItem(): void {
-    this.#focus.blur();
+    this.#focusable.blur();
   }
 }

@@ -289,7 +289,7 @@ export function pipe<T extends Contributable<ExtractS<T>>>(
   options?: PipeOpts & InjectOptions,
 ) {
   const instance = inject(type, options ?? {});
-  instance?.pipe(fn, options);
+  instance?.intercept(fn, options);
   return instance;
 }
 

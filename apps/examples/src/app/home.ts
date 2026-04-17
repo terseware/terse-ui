@@ -1,17 +1,28 @@
 import {Component} from '@angular/core';
-import {TerseButton} from '@terse-ui/core/button';
+import {TerseMenu, TerseMenuItem, TerseMenuTrigger} from '@terse-ui/core/menu';
 
 @Component({
   selector: 'app-home',
-  imports: [TerseButton],
+  imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   host: {
     'class': 'contents',
   },
   template: `
-    <div class="flex flex-col gap-4 p-4">
-      <div class="p-4">
-        <span terseButton composite (click)="console.log('click')"> Enabled </span>
-      </div>
+    <div>
+      <button [terseMenuTrigger]="topTpl">Open Menu</button>
+      <ng-template #topTpl>
+        <div aria-label="Top" class="flex flex-col gap-2" terseMenu>
+          <button terseMenuItem>Apple</button>
+          <button terseMenuItem [terseMenuTrigger]="subTpl">More</button>
+          <button terseMenuItem>Cherry</button>
+        </div>
+      </ng-template>
+      <ng-template #subTpl>
+        <div aria-label="More" class="flex flex-col gap-2" terseMenu>
+          <button terseMenuItem>Sub One</button>
+          <button terseMenuItem>Sub Two</button>
+        </div>
+      </ng-template>
     </div>
   `,
 })

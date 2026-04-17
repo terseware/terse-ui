@@ -16,6 +16,7 @@ export default defineConfig(() => ({
     name: 'terse-ui',
     watch: false,
     globals: true,
+    pool: 'threads',
     environment: 'jsdom',
     include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     setupFiles: ['./test-setup.ts'],

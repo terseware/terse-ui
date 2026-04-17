@@ -30,6 +30,6 @@ export abstract class IdListState extends State<IdListItem[], string | null> {
    * to call from inside an `effect` or any other non-injection context.
    */
   add(value: IdListItem): () => void {
-    return this.pipe((current) => [...current, value], {manualCleanup: true});
+    return this.intercept((current) => [...current, value], {manualCleanup: true});
   }
 }

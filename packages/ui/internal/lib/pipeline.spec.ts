@@ -70,10 +70,6 @@ export class OnClick {
 
   onClick(event: MouseEvent) {
     event.stopImmediatePropagation();
-    console.log('sadsadsa', event);
-    return () => {
-      console.log('onCwqdqdlick returned', event);
-    };
   }
 }
 
@@ -109,9 +105,7 @@ export class Disabled extends ValuePipeline<'soft' | 'hard' | null> {
       }
       return tabIndex;
     });
-    // listener.capture(injectElement(), 'click', (event) => {});
     on('click', ({next, event}) => {
-      console.log('OnClick', this());
       if (this()) {
         event.stopImmediatePropagation();
         return;
@@ -154,7 +148,7 @@ export class ClickEventPlugin extends EventManagerPlugin {
   ): Function {
     const onClick = (element as unknown as Record<symbol, OnClick>)[CLICK];
     if (onClick) {
-      const h = (e) => {
+      const h = (e: MouseEvent) => {
         onClick.onClick(e);
         handler(e);
       };

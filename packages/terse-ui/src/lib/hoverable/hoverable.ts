@@ -53,26 +53,26 @@ export class Hoverable {
     });
 
     if (typeof PointerEvent !== 'undefined') {
-      inject(OnPointerEnter).pipe(({event, next}) => {
+      inject(OnPointerEnter).intercept(({event, next}) => {
         if (!this.#global.globalIgnoreEmulatedMouseEvents || event.pointerType !== 'mouse') {
           this.#triggerHoverStart(event, event.pointerType);
         }
         next();
       });
 
-      inject(OnPointerLeave).pipe(({event, next}) => {
+      inject(OnPointerLeave).intercept(({event, next}) => {
         if (!this.#focusable.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
           this.#triggerHoverEnd(event.pointerType);
         }
         next();
       });
     } else {
-      inject(OnTouchStart).pipe(({next}) => {
+      inject(OnTouchStart).intercept(({next}) => {
         this.#ignoreEmulatedMouseEvents = true;
         next();
       });
 
-      inject(OnMouseEnter).pipe(({event, next}) => {
+      inject(OnMouseEnter).intercept(({event, next}) => {
         if (!this.#ignoreEmulatedMouseEvents && !this.#global.globalIgnoreEmulatedMouseEvents) {
           this.#triggerHoverStart(event, 'mouse');
         }
@@ -80,7 +80,7 @@ export class Hoverable {
         next();
       });
 
-      inject(OnMouseLeave).pipe(({event, next}) => {
+      inject(OnMouseLeave).intercept(({event, next}) => {
         if (!this.#focusable.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
           this.#triggerHoverEnd('mouse');
         }

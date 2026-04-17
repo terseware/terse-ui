@@ -1,4 +1,4 @@
-import {afterNextRender, contentChildren, DestroyRef, Directive, inject} from '@angular/core';
+import {contentChildren, DestroyRef, Directive, effect, inject} from '@angular/core';
 import {onClickOutside} from '@signality/core';
 import {Hoverable, Identifier, Identity} from '@terse-ui/core';
 import {Anchored, provideAnchoredOpts} from '@terse-ui/core/anchor';
@@ -10,7 +10,13 @@ import {MenuTrigger} from './menu-trigger';
 
 @Directive({
   hostDirectives: [Anchored, RovingFocus, Identity, Identifier, OnKeyDown, Hoverable, OnFocusOut],
-  providers: [provideAnchoredOpts({side: 'bottom span-right'})],
+  providers: [
+    provideAnchoredOpts(() => ({
+      side: inject(MenuTrigger, {optional: true})?.isSubmenu
+        ? 'right span-bottom'
+        : 'bottom span-right',
+    })),
+  ],
 })
 export class Menu {
   /** Typeahead buffer reset window. */
@@ -29,8 +35,7 @@ export class Menu {
   #typeaheadBuffer = '';
 
   constructor() {
-    this.identity.role.pipe(({next}) => next('menu'));
-
+    this.identity.role.intercept(({next}) => next('menu'));
     this.#wireKeys();
     this.#wireLifecycle();
   }
@@ -38,7 +43,7 @@ export class Menu {
   #wireKeys(): void {
     // Prepend so we run before RovingFocus' own OnKeyDown handler and can
     // claim Escape/Tab/ArrowLeft/typeahead first.
-    inject(OnKeyDown).pipe(
+    inject(OnKeyDown).intercept(
       ({event, next, preventDefault}) => {
         const key = event.key;
 
@@ -86,7 +91,15 @@ export class Menu {
   #wireLifecycle(): void {
     inject(DestroyRef).onDestroy(this.trigger.setMenu(this));
 
-    afterNextRender(() => {
+    // Fire as soon as the roving-focus item registry is non-empty (which
+    // happens synchronously after the embedded view's items construct),
+    // then no-op for the rest of this menu's lifetime.
+    let focusDone = false;
+    effect(() => {
+      if (focusDone) return;
+      const items = this.focusGroup.items();
+      if (items.length === 0) return;
+      focusDone = true;
       if (this.trigger.openFocus() === 'last') {
         this.focusGroup.focusLast();
       } else {
@@ -99,7 +112,7 @@ export class Menu {
       ignore: this.trigger.element ? [this.trigger.element] : [],
     });
 
-    inject(OnFocusOut).pipe(({event, next}) => {
+    inject(OnFocusOut).intercept(({event, next}) => {
       next();
       if (this.trigger.isSelfOrParentOpen()) return;
 

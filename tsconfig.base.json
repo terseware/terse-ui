@@ -6,6 +6,7 @@
     "baseUrl": ".",
     "esModuleInterop": true,
     "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "ignoreDeprecations": "6.0",
     "importHelpers": true,
@@ -32,7 +33,9 @@
       "@terseware/ui": ["./packages/ui"],
       "@terseware/ui/*": ["./packages/ui/*"],
       "@terse-ui/core": ["./packages/terse-ui"],
-      "@terse-ui/core/*": ["./packages/terse-ui/*"]
+      "@terse-ui/core/*": ["./packages/terse-ui/*"],
+      "@terse-ui/utils": ["./packages/utils"],
+      "@terse-ui/utils/*": ["./packages/utils/*"]
     }
   },
   "exclude": ["node_modules", "tmp"],

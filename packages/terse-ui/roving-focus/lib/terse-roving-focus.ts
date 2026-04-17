@@ -1,5 +1,5 @@
 import {Directive, inject} from '@angular/core';
-import {Orientation, RoleAttribute} from '@terse-ui/core/attributes';
+import {TerseOrientation} from '@terse-ui/core/src';
 import {RovingFocus} from './roving-focus';
 
 export interface TerseRovingFocusState extends RovingFocus {}
@@ -8,16 +8,11 @@ export interface TerseRovingFocusState extends RovingFocus {}
   selector: '[terseRovingFocus]',
   exportAs: 'terseRovingFocus',
   hostDirectives: [
+    TerseOrientation,
     {
       directive: RovingFocus,
-      inputs: [
-        'enabled:terseRovingFocus',
-        'wrap:terseRovingFocusWrap',
-        'homeEnd:terseRovingFocusHomeEnd',
-      ],
+      inputs: ['rovingFocusEnabled:terseRovingFocus', 'rovingFocusWrap', 'rovingFocusHomeEnd'],
     },
-    {directive: Orientation, inputs: ['orientation']},
-    {directive: RoleAttribute, inputs: ['role']},
   ],
 })
 export class TerseRovingFocus {

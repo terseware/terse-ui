@@ -1,6 +1,6 @@
 import {booleanAttribute, Directive, HOST_TAG_NAME, inject, input} from '@angular/core';
 import {listener} from '@signality/core';
-import {Focusable, Hoverable, Identity, Pressable} from '@terse-ui/core';
+import {Focusable, Hoverable, Identity} from '@terse-ui/core';
 import {OnClick, OnKeyDown, OnKeyUp, OnMouseDown, OnPointerDown} from '@terse-ui/core/events';
 import {
   injectElement,
@@ -25,7 +25,6 @@ import {
   hostDirectives: [
     Focusable,
     Hoverable,
-    Pressable,
     Identity,
     OnClick,
     OnMouseDown,
@@ -37,7 +36,6 @@ import {
 export class Button {
   readonly focusable = inject(Focusable);
   readonly hoverable = inject(Hoverable);
-  readonly pressable = inject(Pressable);
   readonly identity = inject(Identity);
   readonly #onClick = inject(OnClick);
   readonly #onMouseDown = inject(OnMouseDown);
@@ -78,8 +76,8 @@ export class Button {
   readonly capturePointerDown = statePipeline(this._inputCapturePointerDown);
 
   constructor() {
-    this.identity.role.pipe(({next}) => next() ?? (this.#implicitRole ? null : 'button'));
-    this.identity.type.pipe(({next}) => next() ?? (this.#isNativeButton ? 'button' : null));
+    this.identity.role.intercept(({next}) => next() ?? (this.#implicitRole ? null : 'button'));
+    this.identity.type.intercept(({next}) => next() ?? (this.#isNativeButton ? 'button' : null));
 
     listener.capture(this.#element, 'click', (event) => {
       if (this.captureClick() && this.focusable.disabled()) {
@@ -87,7 +85,7 @@ export class Button {
         event.stopImmediatePropagation();
       }
     });
-    this.#onClick.pipe(({haltPipeline, next, preventDefault}) => {
+    this.#onClick.intercept(({haltPipeline, next, preventDefault}) => {
       if (this.focusable.disabled()) {
         preventDefault();
         haltPipeline();
@@ -101,7 +99,7 @@ export class Button {
         event.stopImmediatePropagation();
       }
     });
-    this.#onMouseDown.pipe(({haltPipeline, next}) => {
+    this.#onMouseDown.intercept(({haltPipeline, next}) => {
       if (this.focusable.disabled()) {
         haltPipeline();
         return;
@@ -115,7 +113,7 @@ export class Button {
         event.stopImmediatePropagation();
       }
     });
-    this.#onPointerDown.pipe(({haltPipeline, next, preventDefault}) => {
+    this.#onPointerDown.intercept(({haltPipeline, next, preventDefault}) => {
       if (this.focusable.disabled()) {
         preventDefault();
         haltPipeline();
@@ -124,7 +122,7 @@ export class Button {
       next();
     });
 
-    this.#onKeyDown.pipe(({event, next, haltPipeline, pipelineHalted, preventDefault}) => {
+    this.#onKeyDown.intercept(({event, next, haltPipeline, pipelineHalted, preventDefault}) => {
       if (this.focusable.hardDisabled()) {
         haltPipeline();
         return;
@@ -175,7 +173,7 @@ export class Button {
       }
     });
 
-    this.#onKeyUp.pipe(({event, haltPipeline, pipelineHalted, next}) => {
+    this.#onKeyUp.intercept(({event, haltPipeline, pipelineHalted, next}) => {
       if (this.focusable.hardDisabled()) {
         haltPipeline();
         return;

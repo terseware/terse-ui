@@ -119,7 +119,7 @@ export class Focusable {
   readonly focusVisibleChange = output<boolean>();
 
   constructor() {
-    inject(OnKeyDown).pipe(({event, next, preventDefault}) => {
+    inject(OnKeyDown).intercept(({event, next, preventDefault}) => {
       if (this.softDisabled() && event.key !== 'Tab') {
         preventDefault();
       }

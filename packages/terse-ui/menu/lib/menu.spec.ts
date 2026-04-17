@@ -12,7 +12,7 @@ import {TerseMenuTrigger} from './terse-menu-trigger';
   selector: 'test-basic-menu',
   imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
+    <button [terseMenuTrigger]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
       <div aria-label="Actions" terseMenu>
         <button terseMenuItem>Apple</button>
@@ -29,7 +29,7 @@ class BasicMenuHost {}
   selector: 'test-dynamic-menu',
   imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
+    <button [terseMenuTrigger]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
       <div aria-label="Actions" terseMenu>
         @for (label of labels(); track label) {
@@ -47,7 +47,7 @@ class DynamicMenuHost {
   selector: 'test-disabled-item-menu',
   imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button terseMenuTrigger [terseMenuTriggerFor]="menuTpl">Open Menu</button>
+    <button [terseMenuTrigger]="menuTpl">Open Menu</button>
     <ng-template #menuTpl>
       <div aria-label="Actions" terseMenu>
         <button terseMenuItem>Apple</button>
@@ -63,11 +63,11 @@ class DisabledItemMenuHost {}
   selector: 'test-submenu',
   imports: [TerseMenuTrigger, TerseMenu, TerseMenuItem],
   template: `
-    <button terseMenuTrigger [terseMenuTriggerFor]="topTpl">Open Menu</button>
+    <button [terseMenuTrigger]="topTpl">Open Menu</button>
     <ng-template #topTpl>
       <div aria-label="Top" terseMenu>
         <button terseMenuItem>Apple</button>
-        <button terseMenuItem terseMenuTrigger [terseMenuTriggerFor]="subTpl">More</button>
+        <button terseMenuItem [terseMenuTrigger]="subTpl">More</button>
         <button terseMenuItem>Cherry</button>
       </div>
     </ng-template>

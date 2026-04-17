@@ -328,9 +328,9 @@ describe('RovingFocus', () => {
       expect(getItem('Cherry')).toHaveFocus();
     });
 
-    it('does not wrap when [terseRovingFocusWrap]="false"', async () => {
+    it('does not wrap when [rovingFocusWrap]="false"', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [terseRovingFocusWrap]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" [rovingFocusWrap]="false" aria-label="actions">
            <button terseRovingFocusItem>Apple</button>
            <button terseRovingFocusItem>Banana</button>
            <button terseRovingFocusItem>Cherry</button>
@@ -394,9 +394,9 @@ describe('RovingFocus', () => {
       expect(getItem('Banana')).toHaveFocus();
     });
 
-    it('Home/End are no-ops when [terseRovingFocusHomeEnd]="false"', async () => {
+    it('Home/End are no-ops when [rovingFocusHomeEnd]="false"', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [terseRovingFocusHomeEnd]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" [rovingFocusHomeEnd]="false" aria-label="actions">
            <button terseRovingFocusItem>One</button>
            <button terseRovingFocusItem>Two</button>
            <button terseRovingFocusItem>Three</button>
@@ -412,7 +412,7 @@ describe('RovingFocus', () => {
 
     it('does not preventDefault Home/End when the feature is disabled', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [terseRovingFocusHomeEnd]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" [rovingFocusHomeEnd]="false" aria-label="actions">
            <button terseRovingFocusItem>One</button>
            <button terseRovingFocusItem>Two</button>
          </div>`,

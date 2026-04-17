@@ -14,11 +14,10 @@ import {
 } from '@angular/core';
 import {activeElement, listener} from '@signality/core';
 import {setupSync} from '@signality/core/browser/listener';
+import {Controllable, Hoverable, Identity, OpenClose} from '@terse-ui/core';
 import {Anchor} from '@terse-ui/core/anchor';
-import {AriaControls, AriaHasPopup, OpenClose} from '@terse-ui/core/attributes';
 import {Button} from '@terse-ui/core/button';
 import {OnFocusOut, OnKeyDown, OnMouseDown} from '@terse-ui/core/events';
-import {Hover} from '@terse-ui/core/interactions';
 import {injectElement, Timeout} from '@terse-ui/core/utils';
 import {Menu} from './menu';
 
@@ -39,10 +38,10 @@ export type MenuOpenFocus = 'first' | 'last';
     Button,
     OpenClose,
     Anchor,
-    AriaHasPopup,
-    AriaControls,
+    Identity,
+    Controllable,
     OnKeyDown,
-    Hover,
+    Hoverable,
     OnMouseDown,
     OnFocusOut,
   ],
@@ -53,16 +52,11 @@ export class MenuTrigger {
 
   readonly menuTriggerFor = input<MenuTriggerFor>();
 
-  readonly #openClose = inject(OpenClose);
-  readonly #opened = signal(false);
-  readonly opened = this.#opened.asReadonly();
+  readonly opened = inject(OpenClose).state;
 
-  readonly #parentMenu = inject(Menu, {optional: true});
-  readonly isSubmenu = !!this.#parentMenu;
-
-  readonly isSelfOrParentOpen = computed(
-    () => this.#opened() || !!this.#parentMenu?.trigger.opened(),
-  );
+  readonly #parent = inject(Menu, {optional: true});
+  readonly isSubmenu = !!this.#parent;
+  readonly isSelfOrParentOpen = computed(() => this.opened() || !!this.#parent?.trigger.opened());
 
   readonly openFocus = signal<MenuOpenFocus>('first');
   readonly #menu = signal<Menu | null>(null);
@@ -73,28 +67,23 @@ export class MenuTrigger {
   readonly #allowMouseUpReplay = signal(false);
   readonly allowItemClickOnMouseUp: Signal<boolean> =
     // eslint-disable-next-line @angular-eslint/no-uncalled-signals
-    this.#parentMenu?.trigger.allowItemClickOnMouseUp ?? this.#allowMouseUpReplay.asReadonly();
+    this.#parent?.trigger.allowItemClickOnMouseUp ?? this.#allowMouseUpReplay.asReadonly();
 
   constructor() {
-    const hover = inject(Hover);
+    const hover = inject(Hoverable);
 
     // Wire OpenClose to reflect our signal, plus (for submenu) keep it true
     // while pointer is over trigger OR its rendered submenu.
-    this.#openClose.value.pipe(() => {
-      if (this.isSubmenu) {
-        return this.#opened() || hover.hovered() || !!this.#menu()?.hovered.hovered();
-      }
-      return this.#opened();
-    });
+    if (this.isSubmenu) {
+      this.opened.intercept(({next}) => {
+        return next(hover.hovered() || !!this.#menu()?.hovered.hovered());
+      });
+    }
 
-    inject(AriaHasPopup).value.pipe(({next}) => next('menu'));
+    inject(Identity).ariaHasPopup.intercept(({next}) => next('menu'));
 
     // aria-controls follows the rendered menu's id.
-    const ariaControls = inject(AriaControls);
-    ariaControls.value.pipe(({current, next}) => {
-      const menu = this.#menu();
-      return next(menu ? [...current, menu.id] : current);
-    });
+    inject(Controllable).register(() => this.#menu()?.id);
 
     this.#wireKeys();
     this.#wireMouseDown();
@@ -104,18 +93,18 @@ export class MenuTrigger {
   }
 
   #wireKeys(): void {
-    inject(OnKeyDown).pipe(
+    inject(OnKeyDown).intercept(
       ({event, next, preventDefault}) => {
         const key = event.key;
 
         if (this.isSubmenu) {
-          if (key === 'ArrowRight' && !this.#opened()) {
+          if (key === 'ArrowRight' && !this.opened()) {
             preventDefault();
             event.stopPropagation();
             this.open('first');
             return;
           }
-          if (key === 'ArrowLeft' && this.#opened()) {
+          if (key === 'ArrowLeft' && this.opened()) {
             preventDefault();
             event.stopPropagation();
             this.close('escape');
@@ -140,7 +129,7 @@ export class MenuTrigger {
           }
         }
 
-        if (key === 'Escape' && this.#opened()) {
+        if (key === 'Escape' && this.opened()) {
           preventDefault();
           event.stopPropagation();
           this.close('escape');
@@ -154,7 +143,7 @@ export class MenuTrigger {
           // raw keydown on a <button> trigger, so we need to open here.
           // Only prevent + toggle when the menu is closed (so Space inside
           // an open menu isn't affected by the trigger's binding).
-          if (!this.#opened()) {
+          if (!this.opened()) {
             preventDefault();
             this.toggle();
           }
@@ -168,9 +157,9 @@ export class MenuTrigger {
   }
 
   #wireMouseDown(): void {
-    inject(OnMouseDown).pipe(({next}) => {
+    inject(OnMouseDown).intercept(({next}) => {
       next();
-      if (this.#opened()) {
+      if (this.opened()) {
         this.close('escape');
         return;
       }
@@ -194,9 +183,9 @@ export class MenuTrigger {
   }
 
   #wireFocusOut(): void {
-    inject(OnFocusOut).pipe(({event, next}) => {
+    inject(OnFocusOut).intercept(({event, next}) => {
       next();
-      if (!this.#opened()) return;
+      if (!this.opened()) return;
       const related = event.relatedTarget as Node | null;
       if (!this.element?.contains(related) && !this.#menu()?.element.contains(related)) {
         this.close('outside');
@@ -209,7 +198,7 @@ export class MenuTrigger {
     const injector = inject(INJECTOR);
 
     effect((onCleanup) => {
-      if (!this.#opened()) return;
+      if (!this.opened()) return;
       const content = this.menuTriggerFor();
       if (!content) return;
 
@@ -228,14 +217,15 @@ export class MenuTrigger {
   }
 
   #wireFocusBackOnClose(): void {
-    // Async focus-back safety net. The sync branch in close() handles most
-    // cases; this covers programmatic closes that bypass close().
+    // Safety net for programmatic closes that bypass close(). Only tracks
+    // #menu() — the activeElement is read lazily inside the cleanup so
+    // ordinary focus moves WITHIN the menu don't trigger a focus-back.
     effect((onCleanup) => {
       const menu = this.#menu();
       if (!menu) return;
-      const activeElement = this.#activeElement();
       onCleanup(() => {
-        if (menu.element.contains(activeElement) || activeElement === this.#doc.body) {
+        const active = this.#doc.activeElement;
+        if (menu.element.contains(active) || active === this.#doc.body) {
           this.element?.focus();
         }
       });
@@ -249,15 +239,15 @@ export class MenuTrigger {
 
   open(focus: MenuOpenFocus = 'first'): void {
     this.openFocus.set(focus);
-    this.#opened.set(true);
+    this.opened.set(true);
   }
 
   toggle(): void {
-    this.#opened.update((v) => !v);
+    this.opened.update((v) => !v);
   }
 
   close(reason: MenuCloseReason = 'click'): void {
-    this.#opened.set(false);
+    this.opened.set(false);
 
     const menu = this.#menu();
     const activeElement = this.#activeElement();
@@ -270,7 +260,7 @@ export class MenuTrigger {
     }
 
     if (this.isSubmenu && reason !== 'escape') {
-      this.#parentMenu?.trigger.close(reason);
+      this.#parent?.trigger.close(reason);
     }
   }
 }
