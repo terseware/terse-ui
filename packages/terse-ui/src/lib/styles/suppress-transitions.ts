@@ -1,6 +1,6 @@
 import {isPlatformServer} from '@angular/common';
 import {Directive, inject, PLATFORM_ID, Renderer2, RendererStyleFlags2} from '@angular/core';
-import {injectElement, Timeout} from '@terse-ui/core/utils';
+import {injectElement, Timeout} from '@terse-ui/utils';
 
 /** Briefly sets `transition: none` around first paint to avoid flickers. */
 @Directive()

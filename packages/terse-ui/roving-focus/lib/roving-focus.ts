@@ -1,151 +1,120 @@
-import {booleanAttribute, computed, Directive, inject, input, signal} from '@angular/core';
-import {activeElement} from '@signality/core';
-import {Orientation} from '@terse-ui/core';
-import {OnKeyDown} from '@terse-ui/core/events';
-import {SignalMap} from 'ngxtension/collections';
-import type {RovingFocusItem} from './roving-focus-item';
+import {
+  booleanAttribute,
+  computed,
+  Directive,
+  effect,
+  inject,
+  input,
+  signal,
+  type InputSignalWithTransform,
+  type Signal,
+  type WritableSignal,
+} from '@angular/core';
+import {Base, Orientation, provideBaseConfig} from '@terse-ui/core';
+import {injectElement, isNil, SignalSet} from '@terse-ui/utils';
+import {type RovingFocusItem} from './roving-focus-item';
 
 @Directive({
-  hostDirectives: [Orientation, OnKeyDown],
+  hostDirectives: [Base, Orientation],
+  providers: [provideBaseConfig({inheritDisabled: true})],
 })
 export class RovingFocus {
-  readonly enabled = input(true, {alias: 'rovingFocusEnabled', transform: booleanAttribute});
-  readonly wrap = input(true, {alias: 'rovingFocusWrap', transform: booleanAttribute});
-  readonly homeEnd = input(true, {alias: 'rovingFocusHomeEnd', transform: booleanAttribute});
+  readonly element = injectElement();
+  readonly parent = inject(RovingFocus, {optional: true, skipSelf: true});
+  readonly base = inject(Base);
 
-  readonly #items = new SignalMap<string, RovingFocusItem>();
-  readonly itemsSize = computed(() => this.#items.size);
-  readonly items = computed(() => {
-    const arr = Array.from(this.#items.values());
-    return arr.sort((a, b) => {
-      if (a === b) return 0;
-      const pos = a.element.compareDocumentPosition(b.element);
-      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-      return 0;
-    });
+  readonly #initWrap = this.parent?.wrap() ?? true;
+  readonly wrap: InputSignalWithTransform<boolean, unknown> = input(this.#initWrap, {
+    transform: (v) => (isNil(v) ? this.#initWrap : booleanAttribute(v)),
   });
-  readonly #lastFocused = signal<RovingFocusItem | null>(null);
-  readonly lastFocused = this.#lastFocused.asReadonly();
-  readonly #activeElement = activeElement();
-  readonly activeItem = computed(() =>
-    this.items().find((item) => item.element === this.#activeElement()),
-  );
-  readonly currentIndex = computed(() =>
-    this.items().findIndex((item) => item.element === this.#activeElement()),
+
+  readonly orientation = inject(Orientation).orientation;
+  readonly horizontal = computed(() => this.orientation() === 'horizontal');
+  readonly vertical = computed(() => !this.horizontal());
+
+  readonly #itemsFromRoot: SignalSet<RovingFocusItem> = this.parent
+    ? this.parent.#itemsFromRoot
+    : new SignalSet();
+  registerItem(item: RovingFocusItem): () => void {
+    this.#itemsFromRoot.add(item);
+    return () => this.#itemsFromRoot.delete(item);
+  }
+
+  readonly itemsFromRoot = computed(() =>
+    this.#itemsFromRoot
+      .values()
+      .filter((item) => !item.hardDisabled())
+      .toArray()
+      .sort((a, b) => {
+        if (a === b) return 0;
+        const pos = a.compareDocumentPosition(b);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      }),
   );
 
-  readonly #onKeyDown = inject(OnKeyDown);
-  readonly #orientation = inject(Orientation).state;
-  readonly orientation = this.#orientation.asReadonly();
-  readonly isVertical = computed(() => this.orientation() === 'vertical');
-  readonly isHorizontal = computed(() => this.orientation() === 'horizontal');
+  readonly activeItemFromRoot = computed(
+    () => this.#itemsFromRoot.values().find((item) => item.isActive()) ?? null,
+  );
+  readonly #lastActiveItemFromRoot: WritableSignal<RovingFocusItem | null> = this.parent
+    ? this.parent.#lastActiveItemFromRoot
+    : signal<RovingFocusItem | null>(null);
+  readonly lastActiveItemFromRoot = computed(() => {
+    const item = this.#lastActiveItemFromRoot();
+    if (item && this.itemsFromRoot().includes(item)) return item;
+    return null;
+  });
 
-  readonly tabStop = computed<RovingFocusItem | null>(() => {
-    const last = this.#lastFocused();
-    if (last && this.#items.has(last.id) && !last.hardDisabled()) return last;
-    return this.items().find((item) => !item.hardDisabled()) ?? null;
+  readonly items = computed(() => this.itemsFromRoot().filter((item) => item.group === this));
+  readonly size = computed(() => this.items().length);
+  readonly activeIndex = computed(() => this.items().findIndex((item) => item.isActive()));
+  readonly activeItem = computed(() => this.items()[this.activeIndex()] ?? null);
+  readonly firstItem = computed(() => this.items().at(0) ?? null);
+  readonly lastItem = computed(() => this.items().at(-1) ?? null);
+
+  readonly #lastActiveItem = signal<RovingFocusItem | null>(null);
+  readonly lastActiveItem = computed(() => {
+    const item = this.#lastActiveItem();
+    if (item && this.items().includes(item)) return item;
+    return null;
+  });
+
+  readonly nextItem = computed(() => {
+    const idx = this.activeIndex() < 0 ? -1 : this.activeIndex();
+    const nextItem = this.items().at((idx + 1) % this.size()) ?? null;
+    if (!this.wrap() && nextItem === this.firstItem()) return null;
+    return nextItem;
+  });
+
+  readonly previousItem = computed(() => {
+    const idx = this.activeIndex() < 0 ? 0 : this.activeIndex();
+    const previousItem = this.items().at((idx - 1) % this.size()) ?? null;
+    if (!this.wrap() && previousItem === this.lastItem()) return null;
+    return previousItem;
+  });
+
+  readonly tabStop: Signal<RovingFocusItem | null> = computed(() => {
+    if (this.base.disabled()) return null;
+    if (this.parent) return this.parent.tabStop();
+    return this.lastActiveItemFromRoot() ?? this.firstItem();
   });
 
   constructor() {
-    this.#orientation.intercept(({current, next}) => next(current ?? 'vertical'));
-    this.#onKeyDown.intercept(({event, next, preventDefault}) => {
-      if (!this.enabled()) {
-        next();
-        return;
+    effect(() => {
+      const active = this.activeItem();
+      if (active) {
+        this.#lastActiveItem.set(active);
       }
-
-      switch (event.key) {
-        case 'ArrowUp':
-          if (this.isVertical()) {
-            preventDefault();
-            this.focusPrev();
-          }
-          break;
-        case 'ArrowDown':
-          if (this.isVertical()) {
-            preventDefault();
-            this.focusNext();
-          }
-          break;
-
-        case 'ArrowLeft':
-          if (this.isHorizontal()) {
-            preventDefault();
-            this.focusPrev();
-          }
-          break;
-        case 'ArrowRight':
-          if (this.isHorizontal()) {
-            preventDefault();
-            this.focusNext();
-          }
-          break;
-
-        case 'Home':
-          if (this.homeEnd()) {
-            preventDefault();
-            this.focusFirst();
-          }
-          break;
-        case 'End':
-          if (this.homeEnd()) {
-            preventDefault();
-            this.focusLast();
-          }
-          break;
-      }
-
-      next();
     });
-  }
 
-  registerItem(item: RovingFocusItem): () => void {
-    this.#items.set(item.id, item);
-    return () => this.#items.delete(item.id);
-  }
-
-  claimTabStop(item: RovingFocusItem): void {
-    this.#lastFocused.set(item);
-  }
-
-  focusFirst(): void {
-    this.#step(-1, 1)?.focusItem();
-  }
-
-  focusLast(): void {
-    this.#step(this.items().length, -1)?.focusItem();
-  }
-
-  focusNext(): void {
-    this.#step(this.currentIndex(), 1)?.focusItem();
-  }
-
-  focusPrev(): void {
-    this.#step(this.currentIndex(), -1)?.focusItem();
-  }
-
-  /**
-   * Step from `from` in direction `dir` until we land on a non-hard-disabled
-   * item, or exhaust the list. Wrap-aware: if `wrap` is on, walks around
-   * the ends; if off, stops at the boundary. Returns `undefined` when no
-   * reachable item exists (empty list, all disabled, or hit the boundary).
-   */
-  #step(from: number, dir: 1 | -1): RovingFocusItem | undefined {
-    const items = this.items();
-    const n = items.length;
-    if (n === 0) return undefined;
-
-    const wrap = this.wrap();
-    for (let i = 1; i <= n; i++) {
-      let idx = from + dir * i;
-      if (wrap) {
-        idx = ((idx % n) + n) % n;
-      } else if (idx < 0 || idx >= n) {
-        return undefined;
-      }
-      if (!items[idx]?.hardDisabled()) return items[idx];
+    if (!this.parent) {
+      effect(() => {
+        const active = this.activeItemFromRoot();
+        if (active) {
+          this.#lastActiveItemFromRoot.set(active);
+        }
+      });
     }
-    return undefined;
   }
 }

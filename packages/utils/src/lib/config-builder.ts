@@ -2,7 +2,7 @@ import type {InjectOptions, Provider} from '@angular/core';
 import {inject, InjectionToken, INJECTOR} from '@angular/core';
 import type {MaybeFn} from './types/primitive-types';
 import type {DeepPartial} from './types/recursion-types';
-import {unwrapIn, unwrapMergeIn} from './unwrap';
+import {unwrapInject, unwrapMergeInject} from './unwrap';
 
 export type ConfigBuilderResult<C extends object> = [
   provideConfig: (cfg: MaybeFn<DeepPartial<C>>) => Provider[],
@@ -34,11 +34,11 @@ export function configBuilder<C extends object>(
     const contrib = inject(cfgContributionToken, {...cfg, optional: true}) ?? [];
     if (merger) {
       return merger(
-        contrib.map((c) => unwrapIn(inj, c)),
-        unwrapIn(inj, defaultConfig),
+        contrib.map((c) => unwrapInject(inj, c)),
+        unwrapInject(inj, defaultConfig),
       );
     }
-    return unwrapMergeIn(inj, defaultConfig, ...contrib);
+    return unwrapMergeInject(inj, defaultConfig, ...contrib);
   }
 
   function provideConfig(cfg: MaybeFn<DeepPartial<C>>): Provider[] {

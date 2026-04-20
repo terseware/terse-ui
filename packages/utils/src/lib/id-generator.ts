@@ -5,17 +5,7 @@ import type {Branded} from './types/util-types';
 export type Id<P extends string = string> = Branded<`${P}-${number}`, 'Id'>;
 
 /**
- * Platform-wide monotonic id generator. Use for stable, unique, human-readable
- * DOM ids (`id`, `aria-labelledby`, etc.) that must survive SSR/hydration.
- *
- * Counters are per-prefix — `generate('menu')` and `generate('dialog')` don't
- * collide. Use `num()` when you just need a bare monotonic number.
- *
- * @example
- * ```ts
- * const ids = inject(IdGenerator);
- * readonly id = ids.generate('menu'); // 'menu-1', 'menu-2', …
- * ```
+ * Platform-wide monotonic id generator.
  */
 export const IdGenerator = new InjectionToken(ngDevMode ? 'IdGenerator' : '', {
   providedIn: 'platform',

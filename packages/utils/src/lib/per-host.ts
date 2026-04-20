@@ -1,15 +1,28 @@
-import {inject, Injectable, runInInjectionContext, untracked, type Injector} from '@angular/core';
-import {setupContext} from './context';
+import {
+  inject,
+  Injectable,
+  InjectionToken,
+  Injector,
+  runInInjectionContext,
+  untracked,
+  type Provider,
+} from '@angular/core';
+import type {WithInjector} from '@signality/core';
+import {setupContext} from '@signality/core/internal';
 import {injectElement} from './inject-element';
 import type {Constructor} from './types/primitive-types';
+
+export interface PerHostResolverOptions extends WithInjector {
+  readonly providers?: Provider[];
+}
 
 /** Per-element singleton registry used by `@PerHost()`-decorated classes. */
 @Injectable({providedIn: 'root'})
 export class PerHostResolver {
-  readonly #instances = new WeakMap<HTMLElement, Map<Constructor, unknown>>();
+  readonly #instances = new WeakMap<HTMLElement, Map<object, unknown>>();
 
-  #get<T extends object>(element: HTMLElement): Map<Constructor<T>, T> {
-    let serviceMap = this.#instances.get(element) as Map<Constructor<T>, T> | undefined;
+  #get<T>(element: HTMLElement): Map<object, T> {
+    let serviceMap = this.#instances.get(element) as Map<object, T> | undefined;
     if (!serviceMap) {
       serviceMap = new Map();
       this.#instances.set(element, serviceMap);
@@ -17,22 +30,27 @@ export class PerHostResolver {
     return serviceMap;
   }
 
-  resolve<T extends object>(type: Constructor<T>, injector?: Injector): T {
-    const {runInContext} = setupContext(injector, this.resolve.bind(this));
-    return runInContext(({injector}) => {
-      const element = injectElement();
+  resolve<T>(objKey: object, factory: () => T, options?: PerHostResolverOptions): T {
+    const {runInContext} = setupContext(options?.injector, this.resolve.bind(this));
+    return runInContext(({injector: refInj}) => {
+      const element = injectElement<HTMLElement>();
       const serviceMap = this.#get<T>(element);
-      let instance = serviceMap.get(type);
-      if (!instance) {
-        instance = untracked(() => runInInjectionContext(injector, () => new type()));
-        serviceMap.set(type, instance);
-      }
+
+      let instance = serviceMap.get(objKey);
+      if (instance) return instance;
+
+      const injector = options?.providers
+        ? Injector.create({parent: refInj, providers: options.providers})
+        : refInj;
+
+      instance = untracked(() => runInInjectionContext(injector, () => factory()));
+      serviceMap.set(objKey, instance);
       return instance;
     });
   }
 
-  static resolve<T extends object>(type: Constructor<T>, injector?: Injector): T {
-    return inject(PerHostResolver).resolve<T>(type, injector);
+  static resolve<T>(objKey: object, factory: () => T, options?: PerHostResolverOptions): T {
+    return inject(PerHostResolver).resolve<T>(objKey, factory, options);
   }
 }
 
@@ -40,11 +58,23 @@ export class PerHostResolver {
 export function PerHost() {
   return <T extends object, C extends Constructor<T>>(constructor: C): C => {
     Object.defineProperty(constructor, '__NG_ELEMENT_ID__', {
-      value: (): T => PerHostResolver.resolve(constructor),
+      value: (): T => PerHostResolver.resolve<T>(constructor, () => new constructor()),
       configurable: true,
       enumerable: true,
       writable: true,
     });
     return constructor;
   };
+}
+
+/** Creates a per-element singleton injection token. */
+export function perHost<T>(factory: () => T): InjectionToken<T> {
+  const token = new InjectionToken<T>(factory.name);
+  Object.defineProperty(token, '__NG_ELEMENT_ID__', {
+    value: (): T => PerHostResolver.resolve<T>(token, factory),
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+  return token;
 }

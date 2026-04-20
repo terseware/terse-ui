@@ -2,6 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noUncheckedIndexedAccess": false,
+    "declaration": false,
+    "declarationMap": false,
+    "inlineSources": false,
     "outDir": "../../dist/out-tsc",
     "types": [
       "vitest/globals",

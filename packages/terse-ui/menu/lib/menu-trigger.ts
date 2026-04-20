@@ -14,11 +14,10 @@ import {
 } from '@angular/core';
 import {activeElement, listener} from '@signality/core';
 import {setupSync} from '@signality/core/browser/listener';
-import {Controllable, Hoverable, Identity, OpenClose} from '@terse-ui/core';
+import {Controllable, hostEvent, Hoverable, OpenClose} from '@terse-ui/core';
 import {Anchor} from '@terse-ui/core/anchor';
 import {Button} from '@terse-ui/core/button';
-import {OnFocusOut, OnKeyDown, OnMouseDown} from '@terse-ui/core/events';
-import {injectElement, Timeout} from '@terse-ui/core/utils';
+import {injectElement, Timeout} from '@terse-ui/utils';
 import {Menu} from './menu';
 
 /** Accepted `menuTriggerFor` shapes. */
@@ -34,17 +33,10 @@ export type MenuCloseReason = 'click' | 'escape' | 'tab' | 'outside';
 export type MenuOpenFocus = 'first' | 'last';
 
 @Directive({
-  hostDirectives: [
-    Button,
-    OpenClose,
-    Anchor,
-    Identity,
-    Controllable,
-    OnKeyDown,
-    Hoverable,
-    OnMouseDown,
-    OnFocusOut,
-  ],
+  hostDirectives: [Button, OpenClose, Anchor, Hoverable],
+  host: {
+    'aria-haspopup': 'menu',
+  },
 })
 export class MenuTrigger {
   readonly element = injectElement();
@@ -54,16 +46,17 @@ export class MenuTrigger {
 
   readonly opened = inject(OpenClose).state;
 
-  readonly #parent = inject(Menu, {optional: true});
+  readonly #parent = inject(Menu, {optional: true, skipSelf: true});
   readonly isSubmenu = !!this.#parent;
   readonly isSelfOrParentOpen = computed(() => this.opened() || !!this.#parent?.trigger.opened());
 
   readonly openFocus = signal<MenuOpenFocus>('first');
   readonly #menu = signal<Menu | null>(null);
+  readonly menu = this.#menu.asReadonly();
 
   readonly #doc = inject(DOCUMENT);
   readonly #injector = inject(INJECTOR);
-  readonly #mouseUpTimeout = new Timeout();
+  readonly #mouseUpTimeout = Timeout.create();
   readonly #allowMouseUpReplay = signal(false);
   readonly allowItemClickOnMouseUp: Signal<boolean> =
     // eslint-disable-next-line @angular-eslint/no-uncalled-signals
@@ -76,88 +69,75 @@ export class MenuTrigger {
     // while pointer is over trigger OR its rendered submenu.
     if (this.isSubmenu) {
       this.opened.intercept(({next}) => {
-        return next(hover.hovered() || !!this.#menu()?.hovered.hovered());
+        let value = next();
+        if (hover.hovered() || !!this.#menu()?.hovered.hovered()) {
+          value = true;
+        }
+        return value;
       });
     }
-
-    inject(Identity).ariaHasPopup.intercept(({next}) => next('menu'));
 
     // aria-controls follows the rendered menu's id.
     inject(Controllable).register(() => this.#menu()?.id);
 
-    this.#wireKeys();
-    this.#wireMouseDown();
-    this.#wireFocusOut();
-    this.#wireMenuMaterialization();
-    this.#wireFocusBackOnClose();
-  }
-
-  #wireKeys(): void {
-    inject(OnKeyDown).intercept(
-      ({event, next, preventDefault}) => {
-        const key = event.key;
-
-        if (this.isSubmenu) {
-          if (key === 'ArrowRight' && !this.opened()) {
-            preventDefault();
-            event.stopPropagation();
-            this.open('first');
-            return;
-          }
-          if (key === 'ArrowLeft' && this.opened()) {
-            preventDefault();
-            event.stopPropagation();
-            this.close('escape');
-            return;
-          }
-        } else {
-          if (key === 'ArrowDown') {
-            preventDefault();
-            event.stopPropagation();
-            const menu = this.#menu();
-            if (menu) menu.focusGroup.focusFirst();
-            else this.open('first');
-            return;
-          }
-          if (key === 'ArrowUp') {
-            preventDefault();
-            event.stopPropagation();
-            const menu = this.#menu();
-            if (menu) menu.focusGroup.focusLast();
-            else this.open('last');
-            return;
-          }
+    hostEvent('keydown', ({event, next}) => {
+      if (this.isSubmenu) {
+        if (event.key === 'ArrowRight' && !this.opened()) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.open('first');
+          return;
         }
-
-        if (key === 'Escape' && this.opened()) {
-          preventDefault();
+        if (event.key === 'ArrowLeft' && this.opened()) {
+          event.preventDefault();
           event.stopPropagation();
           this.close('escape');
           return;
         }
-
-        if (key === ' ' || key === 'Enter') {
-          // Let Button (on native <button>) handle native activation via
-          // click; for non-native, prevent default and toggle explicitly.
-          // The subsequent click/keyup will toggle — but tests dispatch a
-          // raw keydown on a <button> trigger, so we need to open here.
-          // Only prevent + toggle when the menu is closed (so Space inside
-          // an open menu isn't affected by the trigger's binding).
-          if (!this.opened()) {
-            preventDefault();
-            this.toggle();
-          }
+      } else {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          event.stopPropagation();
+          const menu = this.#menu();
+          if (menu) menu.focusGroup.focusFirst();
+          else this.open('first');
           return;
         }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          event.stopPropagation();
+          const menu = this.#menu();
+          if (menu) menu.focusGroup.focusLast();
+          else this.open('last');
+          return;
+        }
+      }
 
-        next();
-      },
-      {prepend: true},
-    );
-  }
+      if (event.key === 'Escape' && this.opened()) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.close('escape');
+        return;
+      }
 
-  #wireMouseDown(): void {
-    inject(OnMouseDown).intercept(({next}) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        // Let Button (on native <button>) handle native activation via
+        // click; for non-native, prevent default and toggle explicitly.
+        // The subsequent click/keyup will toggle — but tests dispatch a
+        // raw keydown on a <button> trigger, so we need to open here.
+        // Only prevent + toggle when the menu is closed (so Space inside
+        // an open menu isn't affected by the trigger's binding).
+        if (!this.opened()) {
+          event.preventDefault();
+          this.toggle();
+        }
+        return;
+      }
+
+      next();
+    });
+
+    hostEvent('mousedown', ({next}) => {
       next();
       if (this.opened()) {
         this.close('escape');
@@ -180,10 +160,8 @@ export class MenuTrigger {
         ),
       );
     });
-  }
 
-  #wireFocusOut(): void {
-    inject(OnFocusOut).intercept(({event, next}) => {
+    hostEvent('focusout', ({event, next}) => {
       next();
       if (!this.opened()) return;
       const related = event.relatedTarget as Node | null;
@@ -191,9 +169,7 @@ export class MenuTrigger {
         this.close('outside');
       }
     });
-  }
 
-  #wireMenuMaterialization(): void {
     const vcr = inject(ViewContainerRef);
     const injector = inject(INJECTOR);
 
@@ -214,9 +190,7 @@ export class MenuTrigger {
 
       onCleanup(() => ref.destroy());
     });
-  }
 
-  #wireFocusBackOnClose(): void {
     // Safety net for programmatic closes that bypass close(). Only tracks
     // #menu() — the activeElement is read lazily inside the cleanup so
     // ordinary focus moves WITHIN the menu don't trigger a focus-back.

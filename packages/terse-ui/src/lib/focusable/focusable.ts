@@ -1,5 +1,4 @@
 import {
-  booleanAttribute,
   computed,
   Directive,
   inject,
@@ -16,126 +15,87 @@ import {
   type InputModality,
 } from '@signality/core';
 import {watcher} from '@signality/core/reactivity';
-import {OnKeyDown} from '@terse-ui/core/events';
-import {
-  hasDisabledAttribute,
-  hostAttr,
-  injectElement,
-  isBoolean,
-  isNil,
-  statePipeline,
-} from '@terse-ui/core/utils';
+import {hostAttr, injectElement, isNil, statePipeline} from '@terse-ui/utils';
+import {Base} from '../base/base';
+import {hostEvent} from '../events/host-events';
 
 export type FocusOrigin = InputModality | 'program';
 
-function transformTabIndex(v: number | `${number}` | null | undefined): number | null {
-  return isNil(v) ? null : numberAttribute(v);
-}
-
-function transformDisabled(v: boolean | '' | 'hard' | 'soft' | null | undefined): boolean | 'soft' {
-  if (isBoolean(v)) return v;
-  if (v === 'soft') return 'soft';
-  if (v === '' || v === 'hard') return true;
-  return false;
-}
-
-function toDisabledVariant(v: boolean | 'soft' | null): 'hard' | 'soft' | null {
-  if (v === true) return 'hard';
-  if (v === 'soft') return 'soft';
-  return null;
+function transformTabIndex(v: number | `${number}` | null | undefined): number {
+  return isNil(v) ? 0 : numberAttribute(v, 0);
 }
 
 @Directive({
-  hostDirectives: [OnKeyDown],
+  hostDirectives: [Base],
   host: {
-    '[attr.disabled]': "disabledAttr() ? '' : null",
-    '[aria-disabled]': 'ariaDisabledAttr()',
-    '[attr.data-disabled]': 'disabledVariant()',
     '[attr.tabindex]': 'tabIndex()',
-    '[attr.data-focus]': 'focusOrigin()',
-    '[attr.data-focus-visible]': "focusVisible() ? '' : null",
+    '[attr.data-focus]': 'focus()',
+    '[attr.data-focus-visible]': 'focusVisible() ? "" : null',
+    '[attr.data-focus-within]': 'focusWithin() ? "" : null',
   },
 })
 export class Focusable {
-  readonly #el = injectElement();
+  readonly base = inject(Base);
+  readonly #element = injectElement();
+  readonly #inputModality = inputModality();
+  readonly #modality = linkedSignal<FocusOrigin>(this.#inputModality);
 
-  /* Composite */
-
-  readonly _inputComposite = input(false, {alias: 'composite', transform: booleanAttribute});
-  readonly composite = statePipeline(this._inputComposite);
-
-  /* Disabled */
-
-  readonly _inputDisabled = input(false, {alias: 'disabled', transform: transformDisabled});
-  readonly disabled = statePipeline(this._inputDisabled);
-  readonly disabledVariant = computed(() => toDisabledVariant(this.disabled()));
-  readonly softDisabled = computed(() => this.disabledVariant() === 'soft');
-  readonly hardDisabled = computed(() => this.disabledVariant() === 'hard');
-
-  readonly #nativeDisable = hasDisabledAttribute(this.#el);
-  protected readonly disabledAttr = statePipeline(false, {
-    finalize: (v) => (this.#nativeDisable && this.hardDisabled() ? true : v),
-  });
-
-  protected readonly ariaDisabledAttr = statePipeline<boolean | null>(null, {
-    finalize: (v) =>
-      (this.#nativeDisable && this.softDisabled()) || (!this.#nativeDisable && this.disabled())
-        ? Boolean(this.disabled())
-        : v,
-  });
-
-  /* Tab Index */
-
-  readonly _inputTabIndex = input(transformTabIndex(hostAttr('tabindex') as `${number}`), {
+  readonly tabIndexInput = input(transformTabIndex(hostAttr('tabindex') as `${number}` | null), {
     alias: 'tabIndex',
     transform: transformTabIndex,
   });
-  readonly tabIndex = statePipeline(this._inputTabIndex, {
+
+  readonly tabIndex = statePipeline(this.tabIndexInput, {
     finalize: (tabIndex) => {
-      if (this.#nativeDisable) return tabIndex;
-      if (this.hardDisabled()) return -1;
-      return tabIndex ?? 0;
+      if (this.base.nativeDisable || !this.base.disabled()) return tabIndex;
+      return this.base.softDisabled() ? tabIndex : Math.min(tabIndex, -1);
     },
   });
 
-  /* Active Element */
+  readonly activeElement = activeElement();
+  readonly isActiveElement = computed(() => this.activeElement() === this.#element);
 
-  readonly #activeElement = activeElement();
-  readonly isActiveElement = computed(() => this.#activeElement() === this.#el);
-
-  /* Focus & Modality */
-
-  readonly #inputModality = inputModality();
-  readonly #modality = linkedSignal<FocusOrigin>(this.#inputModality);
-  readonly #focus = elementFocus(this.#el, {focusVisible: false});
-  readonly focused = computed(() => !this.hardDisabled() && this.#focus());
-  readonly focusOrigin = computed(() => (this.#focus() ? this.#modality() : null));
+  readonly #focus = elementFocus(this.#element, {focusVisible: false});
+  readonly focus = computed(() =>
+    !this.base.hardDisabled() && this.#focus() ? this.#modality() : null,
+  );
   readonly focusChange = output<FocusOrigin>();
 
-  /* Focus Visible */
-
-  readonly #focusVisible = elementFocusWithin(this.#el);
-  readonly focusVisible = computed(() => !this.hardDisabled() && this.#focusVisible());
+  readonly #focusVisible = elementFocus(this.#element, {focusVisible: true});
+  readonly focusVisible = computed(() => !this.base.hardDisabled() && this.#focusVisible());
   readonly focusVisibleChange = output<boolean>();
 
+  readonly #focusWithin = elementFocusWithin(this.#element);
+  readonly focusWithin = computed(() => !this.#focus() && this.#focusWithin());
+  readonly focusWithinChange = output<boolean>();
+
   constructor() {
-    inject(OnKeyDown).intercept(({event, next, preventDefault}) => {
-      if (this.softDisabled() && event.key !== 'Tab') {
-        preventDefault();
-      }
-      next();
-    });
+    hostEvent(
+      'keydown',
+      ({event, next}) => {
+        if (this.base.softDisabled() && event.key !== 'Tab') {
+          event.preventDefault();
+        }
+        next();
+      },
+      {channel: 'FIFO'}, // Ensure this runs before the default handler
+    );
 
-    watcher(this.focusOrigin, (f) => this.focusChange.emit(f));
+    watcher(this.focus, (f) => this.focusChange.emit(f));
     watcher(this.focusVisible, (fv) => this.focusVisibleChange.emit(fv));
+    watcher(this.focusWithin, (fw) => this.focusWithinChange.emit(fw));
   }
 
-  focus(): void {
-    this.#modality.set('program');
-    this.#focus.set(true);
+  focusElement(modality: FocusOrigin = 'program'): void {
+    this.#modality.set(modality);
+    if (modality === 'keyboard') {
+      this.#focusVisible.set(true);
+    } else {
+      this.#focus.set(true);
+    }
   }
 
-  blur(): void {
+  blurElement(): void {
     this.#focus.set(false);
   }
 }

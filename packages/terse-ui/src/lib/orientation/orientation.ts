@@ -1,62 +1,59 @@
-import {Directive, inject, input, isDevMode} from '@angular/core';
-import {statePipeline} from '@terse-ui/core/utils';
-import {Identity} from '../identity/identity';
+import {computed, Directive, inject, input, isDevMode, type InputSignal} from '@angular/core';
+import {injectElement, statePipeline} from '@terse-ui/utils';
+import {Base} from '../base/base';
 
-export type OrientationState = 'vertical' | 'horizontal' | null;
+export type OrientationState = 'vertical' | 'horizontal';
+
+const ALLOWED_ROLES_SET = new Set([
+  'listbox',
+  'menu',
+  'menubar',
+  'radiogroup',
+  'scrollbar',
+  'select',
+  'separator',
+  'slider',
+  'tablist',
+  'toolbar',
+  'tree',
+] as const);
+
+const ALLOWED_ROLES_STRING = Array.from(ALLOWED_ROLES_SET).join(', ');
 
 @Directive({
-  hostDirectives: [Identity],
+  hostDirectives: [Base],
   host: {
-    '[attr.aria-orientation]': 'state()',
-    '[attr.data-orientation]': 'state()',
+    '[attr.aria-orientation]': 'orientationAttr()',
+    '[attr.data-orientation]': 'orientationAttr()',
   },
 })
 export class Orientation {
-  readonly identity = inject(Identity);
-  readonly _input = input<OrientationState>(null, {alias: 'orientation'});
-  readonly state = statePipeline(this._input, {
-    finalize: (state) => {
-      const role = this.identity.role();
+  readonly base = inject(Base);
+  readonly #element = injectElement();
 
-      const validOrientation = Orientation.VALUE_SET.has(state as never);
-      const validRole = Orientation.ALLOWED_ROLES_SET.has(role as never);
-
-      if (validOrientation && !validRole && isDevMode()) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `Orientation: '${state}' is not allowed for role attribute: '${role}'\n` +
-            `Allowed roles: ${Orientation.ALLOWED_ROLES_STRING}`,
-        );
-      }
-
-      return validOrientation && validRole ? state : null;
-    },
+  readonly #parent = inject(Orientation, {optional: true, skipSelf: true});
+  readonly #initOrientation: OrientationState = this.#parent?.orientation() ?? 'vertical';
+  readonly orientationInput: InputSignal<OrientationState> = input(this.#initOrientation, {
+    alias: 'orientation',
   });
 
-  /** The set of valid `aria-orientation` attribute values. */
-  static readonly VALUE_SET = new Set(['vertical', 'horizontal'] as const);
+  readonly orientation = statePipeline<OrientationState>(this.orientationInput);
+  protected readonly orientationAttr = computed(() => {
+    const state = this.orientation();
+    const role = this.base.role() ?? this.#element.getAttribute('role');
+    if (ALLOWED_ROLES_SET.has(role as never)) {
+      return state;
+    }
 
-  /**
-   * ARIA roles for which `aria-orientation` is a supported attribute. The
-   * directive only reflects `aria-orientation` onto the host when the host
-   * carries one of these roles; setting the attribute on a plain `<div>`
-   * with no role is an axe `aria-allowed-attr` violation because the
-   * attribute has no meaning there. Roving focus is a *behavior*, not a
-   * widget role — the role comes from the consumer (toolbar, tablist, ...).
-   */
-  static readonly ALLOWED_ROLES_SET = new Set([
-    'listbox',
-    'menu',
-    'menubar',
-    'radiogroup',
-    'scrollbar',
-    'select',
-    'separator',
-    'slider',
-    'tablist',
-    'toolbar',
-    'tree',
-  ] as const);
+    if (isDevMode()) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `Orientation: '${state}' is not allowed for role attribute: '${role}'\n` +
+          `Allowed roles: ${ALLOWED_ROLES_STRING}\n` +
+          `Setting orientation to 'null'`,
+      );
+    }
 
-  static readonly ALLOWED_ROLES_STRING = Array.from(Orientation.ALLOWED_ROLES_SET).join(', ');
+    return null;
+  });
 }

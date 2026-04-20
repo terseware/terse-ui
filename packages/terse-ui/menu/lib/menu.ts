@@ -1,22 +1,17 @@
 import {contentChildren, DestroyRef, Directive, effect, inject} from '@angular/core';
 import {onClickOutside} from '@signality/core';
-import {Hoverable, Identifier, Identity} from '@terse-ui/core';
-import {Anchored, provideAnchoredOpts} from '@terse-ui/core/anchor';
-import {OnFocusOut, OnKeyDown} from '@terse-ui/core/events';
+import {hostEvent, Hoverable, Identifier} from '@terse-ui/core';
+import {Anchored} from '@terse-ui/core/anchor';
 import {RovingFocus} from '@terse-ui/core/roving-focus';
-import {injectElement, Timeout} from '@terse-ui/core/utils';
+import {injectElement, Timeout} from '@terse-ui/utils';
 import {MenuItem} from './menu-item';
 import {MenuTrigger} from './menu-trigger';
 
 @Directive({
-  hostDirectives: [Anchored, RovingFocus, Identity, Identifier, OnKeyDown, Hoverable, OnFocusOut],
-  providers: [
-    provideAnchoredOpts(() => ({
-      side: inject(MenuTrigger, {optional: true})?.isSubmenu
-        ? 'right span-bottom'
-        : 'bottom span-right',
-    })),
-  ],
+  hostDirectives: [Anchored, RovingFocus, Identifier, Hoverable],
+  host: {
+    role: 'menu',
+  },
 })
 export class Menu {
   /** Typeahead buffer reset window. */
@@ -25,70 +20,62 @@ export class Menu {
   readonly element = injectElement();
   readonly trigger = inject(MenuTrigger);
   readonly id = inject(Identifier).value;
-  readonly identity = inject(Identity);
+  readonly anchored = inject(Anchored);
   readonly focusGroup = inject(RovingFocus);
   readonly hovered = inject(Hoverable);
 
   readonly items = contentChildren(MenuItem, {descendants: true});
 
-  readonly #typeaheadTimer = new Timeout();
+  readonly #typeaheadTimer = Timeout.create();
   #typeaheadBuffer = '';
 
   constructor() {
-    this.identity.role.intercept(({next}) => next('menu'));
-    this.#wireKeys();
-    this.#wireLifecycle();
-  }
-
-  #wireKeys(): void {
+    this.anchored.anchoredSide.set(
+      inject(MenuTrigger).isSubmenu ? 'right span-bottom' : 'bottom span-right',
+    );
     // Prepend so we run before RovingFocus' own OnKeyDown handler and can
     // claim Escape/Tab/ArrowLeft/typeahead first.
-    inject(OnKeyDown).intercept(
-      ({event, next, preventDefault}) => {
-        const key = event.key;
+    hostEvent('keydown', ({event, next}) => {
+      const key = event.key;
 
-        if (key === 'Escape') {
-          preventDefault();
-          event.stopPropagation();
-          this.trigger.close('escape');
-          return;
-        }
+      if (key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.trigger.close('escape');
+        return;
+      }
 
-        if (key === 'Tab') {
-          preventDefault();
-          event.stopPropagation();
-          this.trigger.close('tab');
-          return;
-        }
+      if (key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.trigger.close('tab');
+        return;
+      }
 
-        if (key === 'ArrowLeft' && this.trigger.isSubmenu) {
-          preventDefault();
-          event.stopPropagation();
-          this.trigger.close('escape');
-          return;
-        }
+      if (key === 'ArrowLeft' && this.trigger.isSubmenu) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.trigger.close('escape');
+        return;
+      }
 
-        // Typeahead: single-character keys with no modifiers.
-        if (
-          key.length === 1 &&
-          !event.ctrlKey &&
-          !event.metaKey &&
-          !event.altKey &&
-          /^.$/u.test(key)
-        ) {
-          preventDefault();
-          // Intentionally NO stopPropagation — let the char bubble.
-          this.#typeahead(key);
-          return;
-        }
+      // Typeahead: single-character keys with no modifiers.
+      if (
+        key.length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        /^.$/u.test(key)
+      ) {
+        event.preventDefault();
+        // Intentionally NO stopPropagation — let the char bubble.
+        this.#typeahead(key);
+        return;
+      }
 
-        next();
-      },
-      {prepend: true},
-    );
-  }
+      next();
+    });
 
-  #wireLifecycle(): void {
     inject(DestroyRef).onDestroy(this.trigger.setMenu(this));
 
     // Fire as soon as the roving-focus item registry is non-empty (which
@@ -112,7 +99,7 @@ export class Menu {
       ignore: this.trigger.element ? [this.trigger.element] : [],
     });
 
-    inject(OnFocusOut).intercept(({event, next}) => {
+    hostEvent('focusout', ({event, next}) => {
       next();
       if (this.trigger.isSelfOrParentOpen()) return;
 

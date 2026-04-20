@@ -9,8 +9,8 @@ import {
   signal,
 } from '@angular/core';
 import {setupContext} from '@signality/core/internal';
-import {Styles} from '@terse-ui/core';
-import {configBuilder, injectElement, isString} from '@terse-ui/core/utils';
+import {Base} from '@terse-ui/core';
+import {injectElement} from '@terse-ui/utils';
 import {Anchor, type AnchorName} from './anchor';
 
 /** Placement of an anchored element relative to its anchor. */
@@ -50,29 +50,12 @@ const FLIP_ALIGN: Record<AnchorAlign, AnchorAlign> = {
   right: 'left',
 };
 
-/** Default configuration for {@link Anchored}. */
-export interface AnchoredOpts {
-  margin: string | number;
-  position: AnchoredPosition;
-  positionTryFallbacks: string[];
-  side: AnchoredSide;
-}
-
-const [provideAnchoredOpts, injectAnchoredOpts] = configBuilder<AnchoredOpts>('Anchor', {
-  margin: 0,
-  position: 'fixed',
-  positionTryFallbacks: ['flip-block', 'flip-inline', 'flip-block flip-inline'],
-  side: 'bottom',
-});
-
-export {provideAnchoredOpts};
-
 /**
  * Positions the host element against a CSS anchor using the native
  * `position-anchor` / `position-area` APIs, with fallback placements.
  */
 @Directive({
-  hostDirectives: [Styles],
+  hostDirectives: [Base],
   host: {
     '[attr.data-side]': 'anchoredSide()',
     '[attr.data-align]': 'align()',
@@ -80,16 +63,16 @@ export {provideAnchoredOpts};
   },
 })
 export class Anchored {
+  readonly base = inject(Base);
   readonly #element = injectElement();
   readonly #ctx = setupContext();
-  readonly #options = injectAnchoredOpts();
 
   readonly anchored = model<Anchor | AnchorName>();
 
   readonly positionAnchor = computed(() => {
     const anchored = this.anchored();
-    if (isString(anchored) && (anchored as string) !== '') return anchored;
-    if (anchored && !isString(anchored)) return anchored.value;
+    if (typeof anchored === 'string' && (anchored as string) !== '') return anchored;
+    if (anchored && typeof anchored !== 'string') return anchored.value;
     return this.#ctx.runInContext(() => {
       const parent = inject(Anchor, {optional: true, skipSelf: true});
       if (!parent && isDevMode()) {
@@ -99,19 +82,21 @@ export class Anchored {
     });
   });
 
-  readonly anchoredMargin = model<string | number>(this.#options.margin);
-  readonly anchoredPosition = model<AnchoredPosition>(this.#options.position);
-  readonly anchoredPositionTryFallbacks = model<string[]>(this.#options.positionTryFallbacks);
-  readonly anchoredSide = model<AnchoredSide>(this.#options.side);
+  readonly anchoredMargin = model<string | number>(0);
+  readonly anchoredPosition = model<AnchoredPosition>('fixed');
+  readonly anchoredPositionTryFallbacks = model<string[]>([
+    'flip-block',
+    'flip-inline',
+    'flip-block flip-inline',
+  ]);
+  readonly anchoredSide = model<AnchoredSide>('bottom');
 
-  readonly #align = signal(this.#options.side);
-  readonly align = computed(
-    () => (this.#align().split(' ')[0] || this.#options.side) as AnchorAlign,
-  );
+  readonly #align = signal('bottom');
+  readonly align = computed(() => (this.#align().split(' ')[0] || 'bottom') as AnchorAlign);
 
   readonly offset = linkedSignal(() => {
     const val = this.anchoredMargin() || 0;
-    return isString(val) ? val : `${val}px`;
+    return typeof val === 'string' ? val : `${val}px`;
   });
 
   constructor() {
@@ -120,7 +105,7 @@ export class Anchored {
       this.#align.update((a) => style.positionArea ?? a);
     });
 
-    inject(Styles).patch(() => ({
+    this.base.patchStyles(() => ({
       'position-area': this.anchoredSide(),
       'position-anchor': this.positionAnchor(),
       'position-try-fallbacks': this.anchoredPositionTryFallbacks().join(', '),

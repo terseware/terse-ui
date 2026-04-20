@@ -1,13 +1,13 @@
 import {isPlatformServer} from '@angular/common';
 import {DOCUMENT, Injectable, PLATFORM_ID, inject} from '@angular/core';
 import {listener, setupSync} from '@signality/core';
-import {Timeout} from '@terse-ui/core/utils';
+import {Timeout} from '@terse-ui/utils';
 
 /** Document-level pointer state that suppresses emulated mouse events after touch. */
 @Injectable({providedIn: 'root'})
 export class GlobalPointerEvents {
   readonly #doc = inject(DOCUMENT);
-  readonly #touchTimeout = new Timeout();
+  readonly #touchTimeout = Timeout.create();
   #globalIgnoreEmulatedMouseEvents = false;
 
   get globalIgnoreEmulatedMouseEvents(): boolean {

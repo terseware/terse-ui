@@ -1,18 +1,19 @@
 import {Directive, inject} from '@angular/core';
-import {Styles} from '@terse-ui/core';
-import {IdGenerator} from '@terse-ui/core/utils';
+import {Base} from '@terse-ui/core';
+import {IdGenerator} from '@terse-ui/utils';
 
 /** CSS custom ident written to `anchor-name` (`--anchor-N`). */
 export type AnchorName = `--anchor-${number}`;
 
 /** Assigns a CSS `anchor-name` to the host so it can be referenced by `Anchored`. */
 @Directive({
-  hostDirectives: [Styles],
+  hostDirectives: [Base],
 })
 export class Anchor {
+  readonly base = inject(Base);
   readonly #generator = inject(IdGenerator);
   readonly value = this.#generator.generate(`--anchor`);
   constructor() {
-    inject(Styles).patch(() => ({['anchor-name']: this.value}));
+    this.base.patchStyles(() => ({['anchor-name']: this.value}));
   }
 }

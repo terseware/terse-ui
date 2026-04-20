@@ -36,6 +36,7 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
+      '@typescript-eslint/no-empty-interface': 'off',
     },
   },
   {
@@ -81,6 +82,7 @@ export default [
       '@angular-eslint/prefer-output-readonly': 'error',
       '@angular-eslint/prefer-signals': 'error',
       '@angular-eslint/no-uncalled-signals': 'error',
+      '@typescript-eslint/no-empty-object-type': 'off',
     },
   },
   {

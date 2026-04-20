@@ -7,7 +7,7 @@ import {TerseFocusable} from './terse-focusable';
 // role because Disabler does not auto-assign one.
 // ---------------------------------------------------------------------------
 
-describe('Disabler a11y', () => {
+describe(TerseFocusable.name + ' a11y', () => {
   it('native <button> enabled', async () => {
     const {container} = await render(`<button terseFocusable>Save</button>`, {
       imports: [TerseFocusable],

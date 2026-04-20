@@ -1,5 +1,5 @@
 import {type EffectRef, type Injector} from '@angular/core';
-import {setupContext} from './context';
+import {setupContext} from '@signality/core/internal';
 
 /**
  * A `setTimeout` handle that auto-clears when its injection context is destroyed

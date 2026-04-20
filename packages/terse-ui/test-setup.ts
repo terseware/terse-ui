@@ -8,4 +8,6 @@ import {setupTestBed} from '@analogjs/vitest-angular/setup-testbed';
 
 import '@testing-library/jest-dom/vitest';
 
-setupTestBed();
+import {provideHostEvents} from './src/lib/events/host-events';
+
+setupTestBed({providers: [provideHostEvents()]});

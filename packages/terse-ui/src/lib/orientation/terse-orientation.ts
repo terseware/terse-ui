@@ -1,4 +1,5 @@
 import {Directive, inject} from '@angular/core';
+import {TerseBase} from '../base/terse-base';
 import {Orientation} from './orientation';
 
 export interface TerseOrientation extends Orientation {}
@@ -9,7 +10,7 @@ export interface TerseOrientation extends Orientation {}
 @Directive({
   selector: '[terseOrientation]',
   exportAs: 'terseOrientation',
-  hostDirectives: [{directive: Orientation, inputs: ['orientation']}],
+  hostDirectives: [TerseBase, {directive: Orientation, inputs: ['orientation']}],
 })
 export class TerseOrientation {
   constructor() {

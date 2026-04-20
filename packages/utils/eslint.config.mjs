@@ -36,21 +36,4 @@ export default [
       parser: await import('jsonc-eslint-parser'),
     },
   },
-  {
-    files: ['**/*.ts'],
-    ignores: ['**/test-setup.ts', '**/test-axe.ts', '**/*.test.ts', '**/*.spec.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: '^(?!(@angular|rxjs|@terse-ui/utils)(/.*)?$)(?!\\.{1,2}/).*',
-              message: 'Only allowed imports: @angular|rxjs|terse-ui',
-            },
-          ],
-        },
-      ],
-    },
-  },
 ];

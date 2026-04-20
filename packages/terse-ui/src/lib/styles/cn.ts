@@ -1,5 +1,5 @@
 import {Directive, input} from '@angular/core';
-import {hostAttr, statePipeline, type StatePipelineInterceptOptions} from '@terse-ui/core/utils';
+import {hostAttr, statePipeline, type StatePipelineInterceptOptions} from '@terse-ui/utils';
 import type {ClassValue} from 'clsx';
 import {clsx} from 'clsx';
 import {twMerge} from 'tailwind-merge';
@@ -10,15 +10,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Composable class-merging host directive.
- *
- * Priority (last wins into `twMerge`):
- *   1. `intercept(...)` contributions (LIFO — outer composer runs first)
- *   2. static host `class="..."` (captured once as the pipeline seed)
- *   3. `[cn]` input (applied in `finalize` — always last, cannot be bypassed)
- *
- * `[attr.class]` is used so the directive owns the attribute; `[class]` would
- * let Angular's renderer re-merge the static class a second time.
+ * Composable class-merging host directive using {@link cn}.
  */
 @Directive({
   selector: '[cn]',
@@ -28,13 +20,16 @@ export function cn(...inputs: ClassValue[]): string {
   },
 })
 export class Cn {
-  /** {@link cn}. */
-  readonly cn = input<ClassValue>();
+  /** Maps class input to {@link cn}. */
+  readonly class = input.required<ClassValue>();
 
-  readonly #state = statePipeline<ClassValue>(hostAttr('class'), {
-    finalize: (merged) => cn(merged, this.cn()),
+  readonly #classes = [hostAttr('cn'), hostAttr('className'), hostAttr('class')];
+
+  readonly #state = statePipeline<ClassValue>('', {
+    finalize: (merged) => cn(merged, this.class(), ...this.#classes),
   });
 
+  /** Classes from host attributes `[cn]`, `[className]`, and `[class]` and input {@link class}. */
   readonly state = this.#state.asReadonly();
 
   /** Register a class interceptor via {@link cn}. */

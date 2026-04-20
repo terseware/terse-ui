@@ -1,5 +1,5 @@
 import {Directive, input} from '@angular/core';
-import {statePipeline} from '@terse-ui/core/utils';
+import {statePipeline} from '@terse-ui/utils';
 
 @Directive({
   host: {

@@ -1,4 +1,5 @@
 import {Component, signal} from '@angular/core';
+import {TestBed} from '@angular/core/testing';
 import {render, screen, within} from '@testing-library/angular';
 import {userEvent} from '@testing-library/user-event';
 import {expectNoA11yViolations} from '../../test-axe';
@@ -46,7 +47,7 @@ const HORIZONTAL_TEMPLATE = `
   </div>
 `;
 
-describe('RovingFocus', () => {
+describe(TerseRovingFocus.name, () => {
   // -------------------------------------------------------------------------
   // Initial tab stop — the group MUST be reachable from the outer tab order.
   // This is APG roving-tabindex guidance: exactly one item holds tabindex=0
@@ -55,7 +56,7 @@ describe('RovingFocus', () => {
 
   describe('initial tab stop', () => {
     it('places tabindex=0 on the first non-hard-disabled item at mount', async () => {
-      await render(
+      const {fixture} = await render(
         `<div terseRovingFocus role="toolbar" aria-label="actions">
            <button terseRovingFocusItem>Apple</button>
            <button terseRovingFocusItem>Banana</button>
@@ -63,6 +64,14 @@ describe('RovingFocus', () => {
          </div>`,
         {imports: IMPORTS},
       );
+      TestBed.tick();
+      fixture.detectChanges();
+      TestBed.tick();
+      await fixture.whenStable();
+      TestBed.tick();
+      fixture.detectChanges();
+      TestBed.tick();
+      await fixture.whenStable();
       const [apple, banana, cherry] = getItems();
       expect(apple).toHaveAttribute('tabindex', '0');
       expect(banana).toHaveAttribute('tabindex', '-1');
@@ -328,9 +337,9 @@ describe('RovingFocus', () => {
       expect(getItem('Cherry')).toHaveFocus();
     });
 
-    it('does not wrap when [rovingFocusWrap]="false"', async () => {
+    it('does not wrap when [wrap]="false"', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [rovingFocusWrap]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" [wrap]="false" aria-label="actions">
            <button terseRovingFocusItem>Apple</button>
            <button terseRovingFocusItem>Banana</button>
            <button terseRovingFocusItem>Cherry</button>
@@ -393,41 +402,6 @@ describe('RovingFocus', () => {
       await userEvent.keyboard('{End}');
       expect(getItem('Banana')).toHaveFocus();
     });
-
-    it('Home/End are no-ops when [rovingFocusHomeEnd]="false"', async () => {
-      await render(
-        `<div terseRovingFocus role="toolbar" [rovingFocusHomeEnd]="false" aria-label="actions">
-           <button terseRovingFocusItem>One</button>
-           <button terseRovingFocusItem>Two</button>
-           <button terseRovingFocusItem>Three</button>
-         </div>`,
-        {imports: IMPORTS},
-      );
-      getItem('Two').focus();
-      await userEvent.keyboard('{Home}');
-      expect(getItem('Two')).toHaveFocus();
-      await userEvent.keyboard('{End}');
-      expect(getItem('Two')).toHaveFocus();
-    });
-
-    it('does not preventDefault Home/End when the feature is disabled', async () => {
-      await render(
-        `<div terseRovingFocus role="toolbar" [rovingFocusHomeEnd]="false" aria-label="actions">
-           <button terseRovingFocusItem>One</button>
-           <button terseRovingFocusItem>Two</button>
-         </div>`,
-        {imports: IMPORTS},
-      );
-      const el = getItem('One');
-      el.focus();
-      const event = new KeyboardEvent('keydown', {
-        key: 'Home',
-        bubbles: true,
-        cancelable: true,
-      });
-      el.dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(false);
-    });
   });
 
   // -------------------------------------------------------------------------
@@ -485,7 +459,7 @@ describe('RovingFocus', () => {
   describe('enabled=false', () => {
     it('ignores arrow keys when the group is disabled', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [terseRovingFocus]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" terseRovingFocus disabled aria-label="actions">
            <button terseRovingFocusItem>One</button>
            <button terseRovingFocusItem>Two</button>
          </div>`,
@@ -498,7 +472,7 @@ describe('RovingFocus', () => {
 
     it('ignores Home/End when the group is disabled', async () => {
       await render(
-        `<div terseRovingFocus role="toolbar" [terseRovingFocus]="false" aria-label="actions">
+        `<div terseRovingFocus role="toolbar" terseRovingFocus disabled aria-label="actions">
            <button terseRovingFocusItem>One</button>
            <button terseRovingFocusItem>Two</button>
          </div>`,

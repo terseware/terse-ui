@@ -3,7 +3,7 @@ import {render, screen} from '@testing-library/angular';
 import {expectNoA11yViolations} from '../../../test-axe';
 import {Cn} from './cn';
 
-describe('Cn', () => {
+describe(Cn.name, () => {
   describe('initial class from host attribute', () => {
     it('preserves classes declared on the host element', async () => {
       await render(`<button cn class="foo bar">ok</button>`, {imports: [Cn]});
@@ -22,14 +22,14 @@ describe('Cn', () => {
 
   describe('[cn] input binding', () => {
     it('replaces the host class via the bound input', async () => {
-      await render(`<button [cn]="'btn btn-primary'">ok</button>`, {imports: [Cn]});
+      await render(`<button cn [class]="'btn btn-primary'">ok</button>`, {imports: [Cn]});
       const btn = screen.getByRole('button');
       expect(btn).toHaveClass('btn');
       expect(btn).toHaveClass('btn-primary');
     });
 
     it('accepts array / object clsx values', async () => {
-      await render(`<button [cn]="['btn', {primary: true, secondary: false}]">ok</button>`, {
+      await render(`<button cn [class]="['btn', {primary: true, secondary: false}]">ok</button>`, {
         imports: [Cn],
       });
       const btn = screen.getByRole('button');
@@ -39,7 +39,7 @@ describe('Cn', () => {
     });
 
     it('updates the rendered class when the input changes', async () => {
-      const {rerender} = await render(`<button [cn]="cls">ok</button>`, {
+      const {rerender} = await render(`<button cn [class]="cls">ok</button>`, {
         imports: [Cn],
         componentProperties: {cls: 'a'},
       });
@@ -55,7 +55,7 @@ describe('Cn', () => {
 
   describe('Cn merger', () => {
     it('applies twMerge to dedupe conflicting tailwind classes', async () => {
-      await render(`<button [cn]="'p-2 p-4 text-red-500 text-blue-500'">ok</button>`, {
+      await render(`<button cn [class]="'p-2 p-4 text-red-500 text-blue-500'">ok</button>`, {
         imports: [Cn],
       });
       const btn = screen.getByRole('button');
@@ -69,7 +69,7 @@ describe('Cn', () => {
     it('intercept() registers a reactive class contribution', async () => {
       @Directive({
         selector: '[withExtras]',
-        hostDirectives: [{directive: Cn, inputs: ['cn']}],
+        hostDirectives: [{directive: Cn, inputs: ['class']}],
       })
       class WithExtras {
         constructor() {
@@ -78,22 +78,22 @@ describe('Cn', () => {
         }
       }
 
-      await render(`<button withExtras class="p-10" [cn]="'p-20'">ok</button>`, {
+      await render(`<button withExtras [attr.class]="'p-10'" cn [class]="'p-20'">ok</button>`, {
         imports: [WithExtras],
       });
       const btn = screen.getByRole('button');
-      expect(btn).not.toHaveClass('p-10');
       expect(btn).not.toHaveClass('p-1');
       expect(btn).not.toHaveClass('p-2');
       expect(btn).not.toHaveClass('p-3');
       expect(btn).not.toHaveClass('p-4');
       expect(btn).toHaveClass('p-20');
+      expect(btn).toHaveClass('p-10');
     });
 
     it('[cn] input always wins over intercept() contributions (finalize invariant)', async () => {
       @Directive({
         selector: '[withPadding]',
-        hostDirectives: [{directive: Cn, inputs: ['cn']}],
+        hostDirectives: [{directive: Cn, inputs: ['class']}],
       })
       class WithPadding {
         constructor() {
@@ -101,7 +101,7 @@ describe('Cn', () => {
         }
       }
 
-      await render(`<button withPadding [cn]="'p-2'">ok</button>`, {
+      await render(`<button withPadding cn [class]="'p-2'">ok</button>`, {
         imports: [WithPadding],
       });
       const btn = screen.getByRole('button');
@@ -113,7 +113,7 @@ describe('Cn', () => {
   describe('a11y', () => {
     it('no axe violations for a labelled button with classes', async () => {
       const {container} = await render(
-        `<button [cn]="'btn primary'" aria-label="Save">Save</button>`,
+        `<button cn [class]="'btn primary'" aria-label="Save">Save</button>`,
         {imports: [Cn]},
       );
       await expect(expectNoA11yViolations(container)).resolves.not.toThrow();

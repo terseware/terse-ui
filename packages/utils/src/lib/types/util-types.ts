@@ -36,11 +36,6 @@ export type WithOptional<T, K extends keyof T> = Omit<T, K> & {[P in K]?: T[P]};
 
 /**
  * Forces TypeScript to expand a type inline for readable hover output.
- *
- * @remarks
- * The `& {}` intersection is what actually triggers the expansion — the
- * mapped type is structurally a no-op. Shallow only; use {@link Simplify}
- * for recursive expansion.
  */
 export type Prettify<T> = {[K in keyof T]: T[K]} & {};
 
@@ -73,10 +68,6 @@ export type IsUnknown<T> = IfAny<T, false, unknown extends T ? true : false>;
 
 /**
  * Converts a union `A | B | C` to an intersection `A & B & C`.
- *
- * @remarks
- * Uses the contravariant-position trick. Load-bearing in variadic type
- * construction — e.g. merging directive inputs in a composition chain.
  */
 export type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (
   x: infer I,
@@ -92,29 +83,13 @@ declare const brand: unique symbol;
 /**
  * Brands `T` with nominal tag `B`. Produces a structural type that is
  * nominally distinct from other brands.
- *
- * @example
- * ```ts
- * type UserId = Branded<string, 'UserId'>;
- * const id = 'abc' as UserId; // cast required — that's the point
  * ```
  */
 export type Branded<T, B extends string> = T & {readonly [brand]: B};
 
 /**
  * Narrows `T` to `Shape` with zero extra keys.
- *
- * @remarks
- * Maps excess keys to `never` at their own positions so the compiler error
- * points at the offending property instead of collapsing the whole type
- * to `never`.
  */
 export type Exact<T, Shape> = T extends Shape
   ? {[K in keyof T]: K extends keyof Shape ? T[K] : never}
   : Shape;
-
-/**
- * TS 5.4+ ships `NoInfer` natively. Re-exported here with a stable name
- * so call sites don't depend directly on the lib version.
- */
-export type NoInferReexport<T> = NoInfer<T>;

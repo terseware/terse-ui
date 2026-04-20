@@ -1,10 +1,5 @@
 /**
- * Type guard for `Element`. Uses `instanceof` for consistency with the other
- * DOM guards.
- *
- * @remarks
- * Not cross-realm safe. If you need to accept elements from iframes, use
- * {@link isElementCrossRealm}.
+ * Type guard for `Element`. Uses `instanceof` for consistency with the other DOM guards.
  */
 export function isElement(value: unknown): value is Element {
   return value instanceof Element;
@@ -46,27 +41,24 @@ export function isInputElement<E extends Element>(
 
 /**
  * Type guard for `<a>` elements.
- *
- * @remarks
- * Deliberately does NOT check `routerLink` — that property lives on the
- * `RouterLink` directive instance, not the element, so the old check was
- * always `undefined` on plain `<a routerLink="/foo">`. Callers that need to
- * know "is this an anchor that will navigate" should inject the directive
- * or check `element.hasAttribute('routerLink') || !!element.href`.
  */
 export function isAnchorElement<E extends Element>(element: E): element is E & HTMLAnchorElement {
   return element instanceof HTMLAnchorElement;
 }
 
 /**
+ * Type guard for `<a>` elements that have a valid `href` or `routerLink` attribute.
+ */
+export function isValidLink<E extends Element>(element: E): element is E & HTMLAnchorElement {
+  return (
+    isAnchorElement(element) &&
+    (!!element.getAttribute('href') || !!element.getAttribute('routerLink'))
+  );
+}
+
+/**
  * Elements whose primary interaction is text input — inputs, textareas, and
  * `[contenteditable]` hosts, plus ARIA textbox/searchbox roles.
- *
- * @remarks
- * Use this to suppress global keyboard shortcuts when the user is typing.
- * By default, `readonly` inputs are excluded (no mutation happens) — pass
- * `{includeReadonly: true}` if you're using this for focus/selection logic
- * rather than shortcut suppression.
  */
 export function isTypeableElement(
   value: unknown,
@@ -89,11 +81,6 @@ const TYPEABLE_SELECTOR_ALL = TYPEABLE_BASE;
 
 /**
  * Type guard for elements that natively support the `disabled` property.
- *
- * @remarks
- * Named to reflect what it actually checks — the element's capability, not
- * the presence of an attribute. A `<button>` always passes; a `<button disabled>`
- * also passes. A `<div disabled>` does not.
  */
 export function supportsDisabled<E extends Element>(
   element: E,

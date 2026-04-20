@@ -1,9 +1,8 @@
 import {computed, Directive, inject, model} from '@angular/core';
-import {Focusable, Hoverable, Identity} from '@terse-ui/core';
+import {Focusable, hostEvent, Hoverable} from '@terse-ui/core';
 import {Button} from '@terse-ui/core/button';
-import {OnClick, OnMouseUp, OnPointerEnter} from '@terse-ui/core/events';
 import {RovingFocusItem} from '@terse-ui/core/roving-focus';
-import {injectElement} from '@terse-ui/core/utils';
+import {injectElement} from '@terse-ui/utils';
 import {Menu} from './menu';
 import {MenuTrigger} from './menu-trigger';
 
@@ -27,22 +26,14 @@ import {MenuTrigger} from './menu-trigger';
  *   so the drag-to-select pattern activates without requiring a full click.
  */
 @Directive({
-  hostDirectives: [
-    Button,
-    RovingFocusItem,
-    Focusable,
-    Hoverable,
-    Identity,
-    OnClick,
-    OnPointerEnter,
-    OnMouseUp,
-  ],
+  hostDirectives: [Button, RovingFocusItem, Focusable, Hoverable],
   host: {
     '[attr.data-highlighted]': 'isHighlighted() ? "" : null',
   },
 })
 export class MenuItem {
   readonly element = injectElement();
+  readonly #button = inject(Button);
   readonly #rovingItem = inject(RovingFocusItem);
   readonly #hover = inject(Hoverable);
   readonly #focus = inject(Focusable);
@@ -52,30 +43,27 @@ export class MenuItem {
 
   readonly #selfTrigger = inject(MenuTrigger, {optional: true, self: true});
 
-  readonly isActive = computed(() => this.#focus.isActiveElement());
+  readonly isActive = computed(() => this.#focus.focus() || this.#focus.isActiveElement());
   readonly isHighlighted = computed(() => this.#hover.hovered() || this.isActive());
 
   readonly closeOnClick = model(true);
 
   constructor() {
-    this.#focus.composite.append(true);
+    this.#button.roleAttr.intercept(({next}) => next() ?? 'menuitem');
 
-    inject(Identity).role.intercept(({next}) => next('menuitem'));
-
-    inject(OnClick).intercept(({next}) => {
+    hostEvent('click', ({next}) => {
       next();
-      if (this.#selfTrigger) return;
-      if (!this.closeOnClick()) return;
+      if (this.#selfTrigger || !this.closeOnClick()) return;
       this.trigger.close('click');
     });
 
-    inject(OnPointerEnter).intercept(({event, next}) => {
+    hostEvent('pointerenter', ({event, next}) => {
       next();
       if (event.pointerType === 'touch') return;
       this.focus();
     });
 
-    inject(OnMouseUp).intercept(({next}) => {
+    hostEvent('mouseup', ({next}) => {
       next();
       if (this.trigger.allowItemClickOnMouseUp()) {
         this.element.click();

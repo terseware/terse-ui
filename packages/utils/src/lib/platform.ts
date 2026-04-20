@@ -23,18 +23,9 @@ const MOBILE_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera M
 
 /**
  * True when the current user-agent appears to be a mobile device.
- *
- * @remarks
- * Scoped to `'root'` (per-application) rather than `'platform'` because in
- * SSR the user-agent comes from the request and differs per request. A
- * platform-scoped provider would cache the first request's value and serve
- * it to all subsequent requests.
- *
- * Detection is heuristic — consider `navigator.userAgentData.mobile` for
- * stronger signals when available.
  */
 export const IS_MOBILE = new InjectionToken<boolean>('IS_MOBILE', {
-  providedIn: 'root',
+  providedIn: 'platform',
   factory: () => {
     if (inject(IS_BROWSER)) {
       const uaData = (navigator as {userAgentData?: {mobile?: boolean}}).userAgentData;

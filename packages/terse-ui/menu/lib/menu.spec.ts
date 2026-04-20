@@ -416,7 +416,9 @@ describe('Menu', () => {
       const clickSpy = vi.fn();
       banana.addEventListener('click', clickSpy);
 
-      await userEvent.keyboard(' ');
+      fireEvent.keyDown(banana, {key: ' '});
+      fixture.detectChanges();
+      await fixture.whenStable();
 
       expect(clickSpy).toHaveBeenCalled();
       expect(queryMenu()).not.toBeInTheDocument();

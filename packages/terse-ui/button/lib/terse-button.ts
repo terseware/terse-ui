@@ -1,36 +1,16 @@
 import {Directive, inject} from '@angular/core';
-import {TerseFocusable, TerseHoverable, TerseIdentity} from '@terse-ui/core';
+import {TerseFocusable, TerseHoverable} from '@terse-ui/core';
 import {Button} from './button';
 
 export interface TerseButton extends Button {}
 
 /**
  * Applies button behavior to any element.
- *
- * Works on `<button>`, `<a>`, `<span>`, `<div>`, `<input>`, or any element.
- * Automatically assigns `role="button"`, `type="button"`, `tabindex="0"`,
- * and keyboard activation for non-native elements. Native `<button>` elements
- * defer to the browser for all of these.
- *
- * @example
- * ```html
- * <button terseButton>Native</button>
- * <span terseButton>Non-native with full keyboard support</span>
- * <button terseButton disabled="soft">Focusable but non-interactive</button>
- * ```
  */
 @Directive({
   selector: '[terseButton]',
   exportAs: 'terseButton',
-  hostDirectives: [
-    TerseFocusable,
-    TerseHoverable,
-    TerseIdentity,
-    {
-      directive: Button,
-      inputs: ['captureClick', 'captureMouseDown', 'capturePointerDown'],
-    },
-  ],
+  hostDirectives: [TerseFocusable, TerseHoverable, Button],
 })
 export class TerseButton {
   constructor() {

@@ -1,47 +1,40 @@
-import {runInInjectionContext, type Injector} from '@angular/core';
+import type {Injector} from '@angular/core';
+import {runInInjectionContext} from '@angular/core';
 import {deepMerge} from './deep-merge';
-import type {Fn, MaybeFn} from './types/primitive-types';
+import type {MaybeFn, MaybeFnNullish} from './types/primitive-types';
 import type {DeepPartial} from './types/recursion-types';
+import {isFunction} from './validators/validators';
 
-/**
- * Resolves a {@link MaybeFn} — returns it directly, or calls it with `args` if it is a function.
- */
+/** Resolves `val` — returns it directly, or calls it with `args` if it's a function. */
 export function unwrap<T, A extends unknown[] = never[]>(val: MaybeFn<T, A>, ...args: A): T {
-  return typeof val === 'function' ? (val as Fn<T, A>)(...args) : val;
+  return isFunction(val) ? val(...args) : val;
 }
 
-/**
- * {@link unwrap} evaluated inside `injector`. Skips the injection-context
- * setup entirely when `val` is not a function.
- */
-export function unwrapIn<T, A extends unknown[] = never[]>(
-  injector: Injector,
+/** {@link unwrap} evaluated inside the given injection context. */
+export function unwrapInject<T, A extends unknown[] = never[]>(
+  inj: Injector,
   val: MaybeFn<T, A>,
   ...args: A
 ): T {
-  if (typeof val !== 'function') return val;
-  return runInInjectionContext(injector, () => (val as Fn<T, A>)(...args));
+  return runInInjectionContext(inj, () => unwrap(val, ...args));
 }
 
-/**
- * Deep-merges a default value with zero or more partial overrides, any of
- * which may be lazy (a function producing the value).
- */
+/** Unwraps a default value and deep-merges any lazy partial overrides onto it. */
 export function unwrapMerge<T extends object>(
   defaultValue: MaybeFn<T, []>,
-  ...overrides: readonly MaybeFn<DeepPartial<NoInfer<T>> | null | undefined, []>[]
+  ...values: MaybeFnNullish<DeepPartial<T>>[]
 ): T {
-  return deepMerge(unwrap(defaultValue), ...overrides.map((v) => unwrap(v)));
+  return deepMerge(unwrap(defaultValue), ...values.map((x) => unwrap(x) ?? {})) as T;
 }
 
-/** {@link unwrapMerge} with all lazy values evaluated inside `injector`. */
-export function unwrapMergeIn<T extends object>(
+/** {@link unwrapMerge} with all lazy values resolved in the given injector. */
+export function unwrapMergeInject<T extends object>(
   injector: Injector,
-  defaultValue: MaybeFn<T>,
-  ...overrides: readonly MaybeFn<DeepPartial<NoInfer<T>> | null | undefined, []>[]
+  defaultValue: MaybeFn<T, []>,
+  ...values: MaybeFnNullish<DeepPartial<T>>[]
 ): T {
   return deepMerge(
-    unwrapIn(injector, defaultValue),
-    ...overrides.map((v) => unwrapIn(injector, v)),
-  );
+    unwrapInject(injector, defaultValue),
+    ...values.map((v) => unwrapInject(injector, v) ?? {}),
+  ) as T;
 }

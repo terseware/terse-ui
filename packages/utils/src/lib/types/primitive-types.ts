@@ -1,4 +1,4 @@
-import type {ElementRef, Injector, Signal} from '@angular/core';
+import type {Signal} from '@angular/core';
 
 /**
  * A function of arity `A` returning `T`.
@@ -38,29 +38,6 @@ export type MaybeFnNullish<T, A extends unknown[] = never[]> = MaybeFn<Nullish<T
 
 /** Either a direct value or a signal that produces one. */
 export type MaybeSignal<T> = T | Signal<T>;
-
-/** Either a direct value, an `ElementRef`, or a signal that produces one. */
-export type MaybeElementSignal<T extends Element> =
-  | T
-  | ElementRef<T>
-  | Signal<T | ElementRef<T> | null | undefined>;
-
-export type SignalValue<S> = S extends Signal<infer V> ? V : never;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnySignal = Signal<any>;
-
-export type SignalValues<T extends readonly AnySignal[]> = {
-  readonly [K in keyof T]: SignalValue<T[K]>;
-};
-
-/** Either a direct value or a zero-arg function producing one. */
-export type MaybeComputation<T> = T | (() => T);
-
-/** Provides optional injector property. */
-export interface WithInjector {
-  readonly injector?: Injector;
-}
 
 /** Any concrete class constructor. */
 export type Constructor<T extends object = object, A extends unknown[] = never[]> = A extends []

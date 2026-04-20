@@ -1,13 +1,7 @@
-import {computed, Directive, DOCUMENT, inject, output, signal} from '@angular/core';
-import {listener, setupSync, watcher} from '@signality/core';
-import {
-  OnMouseEnter,
-  OnMouseLeave,
-  OnPointerEnter,
-  OnPointerLeave,
-  OnTouchStart,
-} from '@terse-ui/core/events';
-import {isNode} from '@terse-ui/core/utils';
+import {computed, Directive, inject, output, signal} from '@angular/core';
+import {watcher} from '@signality/core';
+import {isElement} from '@terse-ui/utils';
+import {hostEvent} from '../events/host-events';
 import {Focusable} from '../focusable/focusable';
 import {GlobalPointerEvents} from './global-pointer-events';
 
@@ -20,25 +14,18 @@ import {GlobalPointerEvents} from './global-pointer-events';
  * from the DOM while still under the pointer.
  */
 @Directive({
-  hostDirectives: [
-    Focusable,
-    OnPointerEnter,
-    OnPointerLeave,
-    OnTouchStart,
-    OnMouseEnter,
-    OnMouseLeave,
-  ],
+  hostDirectives: [Focusable],
   host: {
-    '[attr.data-hover]': "hovered() ? '' : null",
+    '[attr.data-hover]': 'hovered() ? "" : null',
   },
 })
 export class Hoverable {
-  readonly #doc = inject(DOCUMENT);
-  readonly #focusable = inject(Focusable);
+  readonly focusable = inject(Focusable);
+  readonly base = this.focusable.base;
   readonly #global = inject(GlobalPointerEvents);
 
   readonly #hovered = signal(false);
-  readonly hovered = computed(() => !this.#focusable.disabled() && this.#hovered());
+  readonly hovered = computed(() => !this.base.disabled() && this.#hovered());
   readonly hoverChange = output<boolean>();
 
   readonly #target = signal<Element | null>(null);
@@ -48,31 +35,31 @@ export class Hoverable {
   constructor() {
     watcher(this.hovered, (hovered) => this.hoverChange.emit(hovered));
 
-    watcher(this.#focusable.disabled, (disabled) => {
+    watcher(this.base.disabled, (disabled) => {
       if (disabled) this.#triggerHoverEnd(this.#pointerType());
     });
 
     if (typeof PointerEvent !== 'undefined') {
-      inject(OnPointerEnter).intercept(({event, next}) => {
+      hostEvent('pointerenter', ({event, next}) => {
         if (!this.#global.globalIgnoreEmulatedMouseEvents || event.pointerType !== 'mouse') {
           this.#triggerHoverStart(event, event.pointerType);
         }
         next();
       });
 
-      inject(OnPointerLeave).intercept(({event, next}) => {
-        if (!this.#focusable.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
+      hostEvent('pointerleave', ({event, next}) => {
+        if (!this.base.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
           this.#triggerHoverEnd(event.pointerType);
         }
         next();
       });
     } else {
-      inject(OnTouchStart).intercept(({next}) => {
+      hostEvent('touchstart', ({next}) => {
         this.#ignoreEmulatedMouseEvents = true;
         next();
       });
 
-      inject(OnMouseEnter).intercept(({event, next}) => {
+      hostEvent('mouseenter', ({event, next}) => {
         if (!this.#ignoreEmulatedMouseEvents && !this.#global.globalIgnoreEmulatedMouseEvents) {
           this.#triggerHoverStart(event, 'mouse');
         }
@@ -80,8 +67,8 @@ export class Hoverable {
         next();
       });
 
-      inject(OnMouseLeave).intercept(({event, next}) => {
-        if (!this.#focusable.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
+      hostEvent('mouseleave', ({event, next}) => {
+        if (!this.base.disabled() && this.#nodeContains(event.currentTarget, event.target)) {
           this.#triggerHoverEnd('mouse');
         }
         next();
@@ -90,19 +77,18 @@ export class Hoverable {
 
     // When a hovered element shrinks or is removed the browser may not fire
     // pointerleave; a pointerover on the new target is the only signal.
-    setupSync(() => {
-      listener.capture(this.#doc, 'pointerover', (e) => {
-        const target = this.#target();
-        if (this.#hovered() && target && !this.#nodeContains(target, e.target)) {
-          this.#triggerHoverEnd(e.pointerType);
-        }
-      });
+    hostEvent('pointerover', ({event, next}) => {
+      const target = this.#target();
+      if (this.#hovered() && target && !this.#nodeContains(target, event.target)) {
+        this.#triggerHoverEnd(event.pointerType);
+      }
+      next();
     });
   }
 
   #triggerHoverStart(event: Event, pointerType: string): void {
     if (
-      this.#focusable.disabled() ||
+      this.base.disabled() ||
       pointerType === 'touch' ||
       this.#hovered() ||
       !this.#nodeContains(event.currentTarget, event.target)
@@ -126,6 +112,6 @@ export class Hoverable {
   }
 
   #nodeContains(node: unknown, otherNode: unknown): boolean {
-    return isNode(node) && isNode(otherNode) && node.contains(otherNode);
+    return isElement(node) && isElement(otherNode) && node.contains(otherNode);
   }
 }

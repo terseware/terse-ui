@@ -3,7 +3,7 @@ import {fireEvent, render, screen} from '@testing-library/angular';
 import {userEvent} from '@testing-library/user-event';
 import {TerseButton} from './terse-button';
 
-describe('Button', () => {
+describe(TerseButton.name, () => {
   describe('disabled states', () => {
     it('hard disabled: sets disabled attribute on native elements', async () => {
       await render(`<button terseButton disabled></button>`, {imports: [TerseButton]});
@@ -78,14 +78,9 @@ describe('Button', () => {
 
   describe('keyboard events', () => {
     it('prevents non-Tab key events when soft disabled', async () => {
-      const {fixture} = await render(
-        `<span
-          terseButton
-          role="button"
-          disabled="soft"
-        ></span>`,
-        {imports: [TerseButton]},
-      );
+      const {fixture} = await render(`<span terseButton role="button" disabled="soft"></span>`, {
+        imports: [TerseButton],
+      });
 
       const el = screen.getByRole('button');
       el.focus();
@@ -99,14 +94,9 @@ describe('Button', () => {
     });
 
     it('allows Tab key when soft disabled', async () => {
-      await render(
-        `<span
-          terseButton
-          role="button"
-          disabled="soft"
-        ></span>`,
-        {imports: [TerseButton]},
-      );
+      await render(`<span terseButton role="button" disabled="soft"></span>`, {
+        imports: [TerseButton],
+      });
 
       const el = screen.getByRole('button');
       el.focus();

@@ -9,7 +9,7 @@ import {TerseFocusable} from './terse-focusable';
 // role="button" is set explicitly so `screen.getByRole('button')` resolves.
 // ---------------------------------------------------------------------------
 
-describe('Disabler', () => {
+describe(TerseFocusable.name, () => {
   describe('disabled attribute (native elements)', () => {
     it('sets disabled on <button> when hard-disabled', async () => {
       await render(`<button terseFocusable disabled>Go</button>`, {imports: [TerseFocusable]});

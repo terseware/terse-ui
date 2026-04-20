@@ -4,8 +4,8 @@
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "baseUrl": ".",
-    "esModuleInterop": true,
-    "exactOptionalPropertyTypes": true,
+    "declaration": false,
+    "emitDecoratorMetadata": false,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "ignoreDeprecations": "6.0",
@@ -23,6 +23,7 @@
     "noUnusedParameters": true,
     "resolveJsonModule": true,
     "rootDir": ".",
+    "skipDefaultLibCheck": true,
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
@@ -30,12 +31,11 @@
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@terseware/ui": ["./packages/ui"],
-      "@terseware/ui/*": ["./packages/ui/*"],
-      "@terse-ui/core": ["./packages/terse-ui"],
-      "@terse-ui/core/*": ["./packages/terse-ui/*"],
-      "@terse-ui/utils": ["./packages/utils"],
-      "@terse-ui/utils/*": ["./packages/utils/*"]
+      "@terseware/ui": ["packages/ui"],
+      "@terseware/ui/*": ["packages/ui/*"],
+      "@terse-ui/core": ["packages/terse-ui"],
+      "@terse-ui/core/*": ["packages/terse-ui/*"],
+      "@terse-ui/utils": ["packages/utils/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"],

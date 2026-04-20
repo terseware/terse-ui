@@ -1,5 +1,5 @@
 import {computed, Directive, input} from '@angular/core';
-import {hostAttr, notNil, statePipeline} from '@terse-ui/core/utils';
+import {hostAttr, notNil, statePipeline} from '@terse-ui/utils';
 
 @Directive({host: {'[aria-controls]': 'domAriaControls()'}})
 export class Controllable {
@@ -18,9 +18,10 @@ export class Controllable {
   );
 
   register(fn: () => string | null | undefined): () => void {
-    return this.#state.intercept(({current, next}) => {
+    return this.#state.intercept(({next}) => {
       const id = fn();
-      return next(notNil(id) ? [...current, id] : current);
+      const current = next();
+      return notNil(id) ? [...current, id] : current;
     });
   }
 }

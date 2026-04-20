@@ -18,6 +18,11 @@ export function notNil<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
 }
 
+/** Type guard for callable functions. */
+export function isFunction(value: unknown): value is CallableFunction {
+  return typeof value === 'function';
+}
+
 /**
  * Asserts that `value` is not `null | undefined`, throwing otherwise.
  * Narrows in-place — preferable to `if (!x) throw` at call sites.
